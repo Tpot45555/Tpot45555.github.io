@@ -126,12 +126,11 @@ async function api(p){
 }
 
 /* ---------- estado ---------- */
-const MAX=54;                      // edificios en la maqueta; el resto va al bloque "otros"
 let DATA=null, SORT='cpu', PAUSED=false, sel=null, ready=false;
 const items=new Map();             // nombre -> {slot, mesh, line, curve, pulses, cpu, cpuT, h, hT, alive}
 const freeSlots=[];
 
-/* ---------- tres dimensiones ---------- */
+/* ---------- tres dimensiones: la misma retícula recta de la ciudad ---------- */
 const host=$('city');
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
@@ -143,56 +142,93 @@ const ctl=new THREE.OrbitControls(cam,renderer.domElement);
 ctl.enableDamping=true; ctl.dampingFactor=.12; ctl.maxPolarAngle=Math.PI*.46; ctl.minZoom=.35; ctl.maxZoom=14; ctl.screenSpacePanning=false;
 scene.add(new THREE.HemisphereLight(0xffffff,0xb9c0c6,.78));
 const sun=new THREE.DirectionalLight(0xfff6ea,.62); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-.0006;
-sun.position.set(60,90,40); sun.target.position.set(0,0,0); scene.add(sun); scene.add(sun.target);
-sun.shadow.camera.left=-90; sun.shadow.camera.right=90; sun.shadow.camera.top=90; sun.shadow.camera.bottom=-90; sun.shadow.camera.updateProjectionMatrix();
+sun.position.set(60,95,42); sun.target.position.set(0,0,0); scene.add(sun); scene.add(sun.target);
+sun.shadow.camera.left=-70; sun.shadow.camera.right=70; sun.shadow.camera.top=70; sun.shadow.camera.bottom=-70; sun.shadow.camera.updateProjectionMatrix();
 
-const ground=new THREE.Mesh(new THREE.CircleGeometry(44,64),new THREE.MeshLambertMaterial({color:0xdfe3e6}));
+/* la trama: manzanas cuadradas separadas por calles, como el plano de la ciudad */
+const S=7.2, R=4, HY=2.3;                     // paso de manzana, radio en manzanas, altura del tendido
+const EXT=R*S;
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(EXT*2+4,EXT*2+4),new THREE.MeshLambertMaterial({color:0xdfe3e6}));
 ground.rotation.x=-Math.PI/2; ground.position.y=-.26; ground.receiveShadow=true; scene.add(ground);
-function ring(r,op){                                          // anillos de referencia, como un plano de obra
-  const g=new THREE.BufferGeometry().setFromPoints(new THREE.Path().absarc(0,0,r,0,Math.PI*2,false).getSpacedPoints(96).map(p=>new THREE.Vector3(p.x,0,p.y)));
-  scene.add(new THREE.LineLoop(g,new THREE.LineBasicMaterial({color:0xc3c9cd,transparent:true,opacity:op})));
-}
+(function streets(){                          // la cuadrícula de calles
+  const pts=[];
+  for(let i=-R;i<=R;i++){
+    pts.push(new THREE.Vector3(i*S,0,-EXT),new THREE.Vector3(i*S,0,EXT));
+    pts.push(new THREE.Vector3(-EXT,0,i*S),new THREE.Vector3(EXT,0,i*S));
+  }
+  scene.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),
+            new THREE.LineBasicMaterial({color:0xc3c9cd,transparent:true,opacity:.55})));
+})();
 
-/* la central: reparte la energía del procesador */
-const coreG=new THREE.Group(); scene.add(coreG);
-const plinth=new THREE.Mesh(new THREE.CylinderGeometry(4.6,5.2,1.1,6),new THREE.MeshLambertMaterial({color:0x1c2630}));
-plinth.position.y=.55; plinth.castShadow=true; plinth.receiveShadow=true; coreG.add(plinth);
+/* la central: un recinto cuadrado que reparte el procesador */
+const PH=6.3;                                 // medio lado del recinto
+const inkMat=new THREE.MeshLambertMaterial({color:0x1c2630});
 const colMat=new THREE.MeshLambertMaterial({color:0xb4441f});
-const column=new THREE.Mesh(new THREE.CylinderGeometry(1.5,2.0,1,6),colMat);
-column.geometry.translate(0,.5,0); column.position.y=1.1; column.scale.y=4; column.castShadow=true; coreG.add(column);
-const halo=new THREE.Mesh(new THREE.RingGeometry(5.6,6.5,48),new THREE.MeshBasicMaterial({color:0xb4441f,transparent:true,opacity:.3,side:THREE.DoubleSide}));
-halo.rotation.x=-Math.PI/2; halo.position.y=.05; coreG.add(halo);
+const plinth=new THREE.Mesh(new THREE.BoxGeometry(PH*2,1.3,PH*2),inkMat);
+plinth.position.y=.65; plinth.castShadow=true; plinth.receiveShadow=true; scene.add(plinth);
+const towerG=new THREE.BoxGeometry(4.3,1,4.3); towerG.translate(0,.5,0);
+const column=new THREE.Mesh(towerG,colMat); column.position.y=1.3; column.scale.y=4; column.castShadow=true; scene.add(column);
+const colEdge=new THREE.LineSegments(new THREE.EdgesGeometry(towerG),new THREE.LineBasicMaterial({color:0x1c2630,transparent:true,opacity:.35}));
+colEdge.position.y=1.3; colEdge.scale.y=4; scene.add(colEdge);
+const cap=new THREE.Mesh(new THREE.BoxGeometry(5.2,.5,5.2),inkMat); cap.castShadow=true; scene.add(cap);
+const pylonG=new THREE.BoxGeometry(1.1,3.2,1.1); pylonG.translate(0,1.6,0);
+for(const sx of [-1,1]) for(const sz of [-1,1]){
+  const p=new THREE.Mesh(pylonG,inkMat); p.position.set(sx*(PH-1.1),1.3,sz*(PH-1.1)); p.castShadow=true; scene.add(p);
+}
+const padG=new THREE.PlaneGeometry(PH*2+2.6,PH*2+2.6);
+const pad=new THREE.Mesh(padG,new THREE.MeshBasicMaterial({color:0xb4441f,transparent:true,opacity:.14}));
+pad.rotation.x=-Math.PI/2; pad.position.y=.02; scene.add(pad);
 
-/* edificios */
+/* edificios: cajas sobre su losa, igual que las carpetas de la ciudad */
 const boxG=new THREE.BoxGeometry(2.9,1,2.9); boxG.translate(0,.5,0);
 const edgeG=new THREE.EdgesGeometry(boxG);
 const edgeMat=new THREE.LineBasicMaterial({color:0x1c2630,transparent:true,opacity:.26});
-const plateG=new THREE.BoxGeometry(4.1,.22,4.1); plateG.translate(0,.11,0);
+const plateG=new THREE.BoxGeometry(4.3,.22,4.3); plateG.translate(0,.11,0);
 const plateMat=new THREE.MeshLambertMaterial({color:0xf6f7f7});
 const selBox=new THREE.LineSegments(edgeG,new THREE.LineBasicMaterial({color:0xb4441f})); selBox.visible=false; scene.add(selBox);
 const C_IDLE=new THREE.Color(0xa7b0b7), C_BUSY=new THREE.Color(0xb4441f);
-const L_IDLE=new THREE.Color(0xb6bec4), L_BUSY=new THREE.Color(0xd2561f);
+const L_IDLE=new THREE.Color(0x98a2aa), L_BUSY=new THREE.Color(0xd2561f);
 
-/* pulsos: un solo objeto con muchas copias, para que no cueste nada dibujarlos */
+/* pulsos: cubos pequeños, un solo objeto con muchas copias */
 const PMAX=520;
-const pulseMesh=new THREE.InstancedMesh(new THREE.OctahedronGeometry(.42),new THREE.MeshBasicMaterial({color:0xd2561f}),PMAX);
+const pulseMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(.62,.62,.62),new THREE.MeshBasicMaterial({color:0xd2561f}),PMAX);
 pulseMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); pulseMesh.frustumCulled=false; scene.add(pulseMesh);
 const dummy=new THREE.Object3D();
 
-/* huecos de la maqueta: anillos concéntricos alrededor de la central */
+/* las parcelas: la manzana libre más cercana a la central se ocupa primero */
 const SLOTS=[];
-for(let ring=0, r=13; SLOTS.length<MAX+1; ring++, r+=6.4){
-  const n=Math.max(6,Math.floor(2*Math.PI*r/6.1));
-  for(let i=0;i<n && SLOTS.length<MAX+1;i++){
-    const a=(i/n)*Math.PI*2 + (ring%2?Math.PI/n:0);
-    SLOTS.push({x:Math.cos(a)*r, z:Math.sin(a)*r, r:r, free:true});
-  }
+for(let i=-R;i<R;i++) for(let j=-R;j<R;j++){
+  if(i>=-1&&i<=0&&j>=-1&&j<=0) continue;      // el centro es el recinto de la central
+  const x=(i+.5)*S, z=(j+.5)*S;
+  SLOTS.push({x:x,z:z,d:Math.hypot(x,z),free:true});
 }
-const RMAX=Math.max.apply(null,SLOTS.map(s=>s.r));
-ring(8.4,.45); for(let r=13;r<=RMAX+.1;r+=6.4) ring(r,.42); ring(RMAX+5.5,.3);
+SLOTS.sort((a,b)=>a.d-b.d||Math.atan2(a.z,a.x)-Math.atan2(b.z,b.x));
+const MAX=Math.min(54,SLOTS.length);
 const tags=[];                                                  // etiquetas de los que más gastan
 
-function takeSlot(){ let best=-1; for(let i=0;i<SLOTS.length;i++) if(SLOTS[i].free){best=i;break;} if(best<0) return null; SLOTS[best].free=false; return best; }
+function takeSlot(){ for(let i=0;i<MAX;i++) if(SLOTS[i].free){ SLOTS[i].free=false; return i; } return null; }
+
+/* el tendido: sale del recinto por la avenida, dobla en una calle y entra a pie de obra */
+function conduit(s,k){
+  const hy=HY+(k%7)*.035, sx=s.x>=0?1:-1, sz=s.z>=0?1:-1;
+  const stx=s.x-sx*S/2, stz=s.z-sz*S/2;
+  const pts=[];
+  if(Math.abs(s.z)<S){                        // está en la avenida: sale recto
+    pts.push(new THREE.Vector3(sx*PH,hy,s.z),new THREE.Vector3(stx,hy,s.z));
+  }else{
+    pts.push(new THREE.Vector3(sx*PH,hy,sz*(S/2)),new THREE.Vector3(stx,hy,sz*(S/2)),new THREE.Vector3(stx,hy,s.z));
+  }
+  pts.push(new THREE.Vector3(stx,.5,s.z),new THREE.Vector3(s.x-sx*2.15,.5,s.z));
+  const len=[0]; let tot=0;
+  for(let i=1;i<pts.length;i++){ tot+=pts[i].distanceTo(pts[i-1]); len.push(tot); }
+  return {pts:pts,len:len,tot:tot||1};
+}
+function onPath(p,u,out){
+  const d=u*p.tot; let i=1;
+  while(i<p.len.length-1&&p.len[i]<d) i++;
+  const a=p.pts[i-1],b=p.pts[i],seg=p.len[i]-p.len[i-1]||1,t=(d-p.len[i-1])/seg;
+  out.set(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t,a.z+(b.z-a.z)*t);
+}
 
 function makeItem(name){
   const si=takeSlot(); if(si===null) return null;
@@ -203,14 +239,14 @@ function makeItem(name){
   mesh.position.y=.22; mesh.scale.y=.4; mesh.castShadow=true; mesh.receiveShadow=true; g.add(mesh);
   const edges=new THREE.LineSegments(edgeG,edgeMat); edges.position.y=.22; edges.scale.y=.4; g.add(edges);
   scene.add(g);
-  const from=new THREE.Vector3(Math.cos(Math.atan2(s.z,s.x))*5.0,1.6,Math.sin(Math.atan2(s.z,s.x))*5.0);
-  const to=new THREE.Vector3(s.x,.5,s.z);
-  const mid=from.clone().lerp(to,.5); mid.y=3.4+s.r*.06;
-  const curve=new THREE.QuadraticBezierCurve3(from,mid,to);
-  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(26)),
-                            new THREE.LineBasicMaterial({color:L_IDLE.clone(),transparent:true,opacity:.3}));
+  const sx=s.x>=0?1:-1;
+  const box=new THREE.Mesh(new THREE.BoxGeometry(.7,.5,.7),inkMat);
+  box.position.set(-sx*2.1,.25,0); box.castShadow=true; g.add(box);
+  const path=conduit(s,si);
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(path.pts),
+                            new THREE.LineBasicMaterial({color:L_IDLE.clone(),transparent:true,opacity:.45}));
   scene.add(line);
-  return {name,slot:si,group:g,mesh,edges,line,curve,cpu:0,cpuT:0,h:.4,hT:.4,ram:0,data:null,phase:Math.random()};
+  return {name:name,slot:si,group:g,mesh:mesh,edges:edges,line:line,path:path,cpu:0,cpuT:0,h:.4,hT:.4,ram:0,data:null,phase:Math.random()};
 }
 
 function dropItem(it){
@@ -226,7 +262,7 @@ function apply(d){
   const top=d.procs.slice(0,MAX);
   const rest=d.procs.slice(MAX);
   const maxRam=Math.max(1,...top.map(p=>p.ram));
-  const hOf=ram=>.6+8.2*clamp(Math.log1p(ram/6e6)/Math.log1p(maxRam/6e6),0,1);
+  const hOf=ram=>.9+8.0*clamp(Math.log1p(ram/6e6)/Math.log1p(maxRam/6e6),0,1);
   const seen=new Set();
   for(const p of top){
     seen.add(p.name);
@@ -244,7 +280,7 @@ function apply(d){
     if(it){ it.data=r; it.ram=r.ram; it.cpuT=r.cpu; it.hT=hOf(r.ram); }
   }
   for(const it of Array.from(items.values())) if(!seen.has(it.name)) dropItem(it);
-  column.scale.y=clamp(1.3+d.cpu*.075,1.3,9);
+  column.scale.y=clamp(1.4+d.cpu*.085,1.4,10); colEdge.scale.y=column.scale.y; cap.position.y=1.3+column.scale.y;
   renderSide(d);
   if(sel) showCard(sel);
 }
@@ -298,14 +334,13 @@ function frame(){
     const k=clamp(it.cpu/14,0,1);
     it.mesh.material.color.copy(C_IDLE).lerp(C_BUSY,k);
     it.line.material.color.copy(L_IDLE).lerp(L_BUSY,clamp(it.cpu/8,0,1));
-    it.line.material.opacity=.22+.68*clamp(it.cpu/6,0,1);
+    it.line.material.opacity=.42+.5*clamp(it.cpu/6,0,1);
     const np=it.cpu<.12?0:clamp(1+Math.round(it.cpu/2.2),1,8);   // más CPU, más pulsos y más rápidos
     const sp=.18+clamp(it.cpu,0,40)*.022;
     for(let i=0;i<np && n<PMAX;i++,n++){
       const u=((now/1000*sp)+it.phase+i/np)%1;
-      it.curve.getPoint(u,dummy.position);
-      const s=.5+.5*Math.sin(u*Math.PI);
-      dummy.scale.setScalar(s*(.55+clamp(it.cpu/16,0,1)*.9)); dummy.rotation.y=now/400;
+      onPath(it.path,u,dummy.position);
+      dummy.scale.setScalar(.55+clamp(it.cpu/16,0,1)*.75);
       dummy.updateMatrix(); pulseMesh.setMatrixAt(n,dummy.matrix);
     }
   }
@@ -313,8 +348,7 @@ function frame(){
   pulseMesh.count=PMAX; pulseMesh.instanceMatrix.needsUpdate=true;
   if(sel){ const it=items.get(sel); if(it) selBox.scale.set(1,it.h,1); }
   const cp=DATA?DATA.cpu:0;
-  halo.scale.setScalar(1+.05*Math.sin(now/340)*(1+cp/25));
-  halo.material.opacity=.18+.3*clamp(cp/40,0,1);
+  pad.material.opacity=.10+.26*clamp(cp/40,0,1)*(.75+.25*Math.sin(now/340));
   colMat.color.setHSL(.045,.66,clamp(.40+cp/420,.40,.52));
   ctl.update();
   renderer.render(scene,cam);
@@ -335,11 +369,11 @@ function drawTags(){
 }
 
 function fit(){
-  const w=host.clientWidth||1, h=host.clientHeight||1, a=w/h, view=(RMAX+9)*2;
+  const w=host.clientWidth||1, h=host.clientHeight||1, a=w/h, view=EXT*2+8;
   cam.left=-view*a/2; cam.right=view*a/2; cam.top=view/2; cam.bottom=-view/2; cam.updateProjectionMatrix();
 }
 function resize(){ const w=host.clientWidth,h=host.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false); fit(); }
-function home(){ cam.position.set(56,50,56); ctl.target.set(0,2,0); cam.zoom=1; cam.updateProjectionMatrix(); ctl.update(); }
+function home(){ cam.position.set(58,52,58); ctl.target.set(0,2,0); cam.zoom=1; cam.updateProjectionMatrix(); ctl.update(); }
 addEventListener('resize',resize);
 
 /* ---------- interacción ---------- */
