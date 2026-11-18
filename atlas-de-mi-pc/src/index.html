@@ -26,6 +26,7 @@ button,input{font:inherit;color:inherit}
 .btn.danger{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn.danger:hover{filter:brightness(1.08)}
 .btn:disabled{opacity:.5;cursor:default}
+a.btn{text-decoration:none;display:inline-block;line-height:normal}
 .link{border:0;background:none;padding:0;color:var(--accent);cursor:pointer;font-size:12px;text-decoration:underline}
 
 #side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
@@ -136,7 +137,7 @@ dt{color:var(--muted)} dd{margin:0;text-align:right;font-family:var(--mono);font
   <div id="legend"></div>
 </aside>
 <main id="main">
-  <div id="bar"><nav id="crumbs" aria-label="Ruta"></nav><div id="tools"><div class="seg" id="mode" role="group" aria-label="Color de los bloques"><button data-m="tipo" aria-pressed="true">Tipo</button><button data-m="old" aria-pressed="false">Abandono</button><button data-m="junk" aria-pressed="false">Basura</button></div><button class="btn" id="bRep">Informes</button><button class="btn" id="bCart">Carrito</button><button class="btn" id="bJar">Jarvis</button></div></div>
+  <div id="bar"><nav id="crumbs" aria-label="Ruta"></nav><div id="tools"><div class="seg" id="mode" role="group" aria-label="Color de los bloques"><button data-m="tipo" aria-pressed="true">Tipo</button><button data-m="old" aria-pressed="false">Abandono</button><button data-m="junk" aria-pressed="false">Basura</button></div><button class="btn" id="bRep">Informes</button><button class="btn" id="bCart">Carrito</button><button class="btn" id="bJar">Jarvis</button><a class="btn" id="bProc" href="/procesos" target="_blank" rel="noopener" title="Abre en otra pestana el administrador de tareas">Procesos</a></div></div>
   <div id="city"></div>
   <div id="hint">clic: ficha · doble clic: entrar · Retroceso: subir · C: al carrito · Supr: papelera · arrastrar: girar · rueda: zoom</div>
   <div id="tip"></div>

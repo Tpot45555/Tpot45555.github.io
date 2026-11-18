@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administrador de tareas — Atlas de mi PC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* La misma maqueta de urbanismo que la ciudad del Atlas, pero viva: cada programa es un
+   edificio y la central del centro le manda energia por conductos. Cuanta mas CPU gasta,
+   mas luz y mas pulsos corren por su linea. */
+:root{
+  color-scheme: light;
+  --paper:#e9ecee; --panel:#f7f8f8; --ink:#1c2630; --muted:#65717c; --line:#cfd5d9; --accent:#b4441f;
+  --display:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font:14px/1.45 var(--body);display:grid;grid-template-columns:340px 1fr;grid-template-rows:100%;overflow:hidden}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:4px;padding:6px 10px;cursor:pointer;font-weight:500;font-size:13px}
+.btn:hover{border-color:var(--muted)}
+.btn.on{background:var(--ink);border-color:var(--ink);color:#fff}
+a.btn{text-decoration:none;display:inline-block;line-height:normal}
+
+#side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+#head{padding:16px 18px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:11px}
+.eyebrow{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font:600 24px/1.05 var(--display);margin:2px 0 0}
+.gauge{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+.gauge .row{display:flex;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums}
+.gauge .row b{color:var(--ink);font-weight:600}
+.gauge .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.gauge .bar i{display:block;height:100%;background:var(--ink);transition:width .5s ease}
+.gauge.cpu .bar i{background:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:5px 10px;cursor:pointer;font-size:12px;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--ink);color:#fff}
+
+#list{overflow:auto;flex:1;min-height:0;padding:6px 0}
+.p{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;width:100%;text-align:left;background:none;border:0;border-left:3px solid transparent;padding:6px 18px 6px 15px;cursor:pointer}
+.p:hover,.p.on{background:#eceff0}
+.p.on{border-left-color:var(--accent)}
+.p .n{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p .s{font:12px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.p .m{grid-column:1/-1;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.p .m b{display:block;height:100%;background:var(--accent);transition:width .5s ease}
+.p .c{grid-column:1/-1;font-size:11px;color:var(--muted)}
+#legend{border-top:1px solid var(--line);padding:10px 18px;font-size:11px;color:var(--muted);line-height:1.45}
+#legend b{color:var(--ink)}
+
+#main{position:relative;min-width:0;min-height:0}
+#bar{position:absolute;inset:10px 10px auto 10px;z-index:3;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none}
+#bar>*{pointer-events:auto}
+#tools{display:flex;gap:8px;align-items:center}
+#city{position:absolute;inset:0}
+#city canvas{display:block}
+#hint{position:absolute;left:0;right:0;bottom:10px;text-align:center;font:11px var(--mono);color:var(--muted);pointer-events:none}
+.tag{position:absolute;transform:translate(-50%,-100%);font:500 11px var(--mono);color:var(--ink);background:rgba(255,255,255,.82);border:1px solid var(--line);border-radius:3px;padding:1px 5px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .3s}
+#card{position:absolute;right:14px;top:56px;width:272px;background:#fff;border:1px solid var(--line);border-radius:5px;padding:14px 16px;display:none;z-index:4;box-shadow:0 10px 28px rgba(28,38,48,.13)}
+#card h2{font:600 17px var(--display);margin:0 0 2px}
+#card .meta{font:12px var(--mono);color:var(--muted);word-break:break-all;margin-bottom:10px}
+#card dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:13px}
+#card dt{color:var(--muted)}
+#card dd{margin:0;font-variant-numeric:tabular-nums;text-align:right}
+#card .x{position:absolute;top:8px;right:10px;border:0;background:none;cursor:pointer;color:var(--muted);font-size:15px}
+#warn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--line);border-radius:5px;padding:14px 18px;max-width:340px;text-align:center;color:var(--muted);display:none;z-index:5}
+</style>
+</head>
+<body>
+<aside id="side">
+  <div id="head">
+    <div>
+      <div class="eyebrow">Atlas de mi PC</div>
+      <h1>Administrador de tareas</h1>
+    </div>
+    <div class="gauge cpu">
+      <div class="row"><span>Procesador</span><b id="cpuV">—</b></div>
+      <div class="bar"><i id="cpuB" style="width:0"></i></div>
+    </div>
+    <div class="gauge">
+      <div class="row"><span>Memoria</span><b id="ramV">—</b></div>
+      <div class="bar"><i id="ramB" style="width:0"></i></div>
+    </div>
+    <div class="seg" id="sort" role="group" aria-label="Orden de la lista">
+      <button data-s="cpu" aria-pressed="true">Por CPU</button>
+      <button data-s="ram" aria-pressed="false">Por memoria</button>
+      <button data-s="name" aria-pressed="false">Por nombre</button>
+    </div>
+  </div>
+  <div id="list"></div>
+  <div id="legend">Cada edificio es un programa: la <b>altura</b> es la memoria que ocupa. Las líneas que salen de la central llevan la <b>energía del procesador</b>: cuantos más pulsos corren por una, más CPU está gastando ese programa.</div>
+</aside>
+
+<div id="main">
+  <div id="bar">
+    <a class="btn" href="/">← La ciudad</a>
+    <div id="tools">
+      <button class="btn" id="bPause">Pausar</button>
+      <button class="btn" id="bFit">Encuadrar</button>
+    </div>
+  </div>
+  <div id="city"></div>
+  <div id="card"><button class="x" id="cardX" aria-label="Cerrar">✕</button><h2 id="cN"></h2><div class="meta" id="cP"></div>
+    <dl><dt>Procesador</dt><dd id="cC"></dd><dt>Memoria</dt><dd id="cR"></dd><dt>Procesos</dt><dd id="cI"></dd><dt>PID</dt><dd id="cD"></dd></dl>
+  </div>
+  <div id="warn"></div>
+  <div id="hint">clic: ficha · arrastrar: girar · rueda: zoom · la central del centro reparte el procesador</div>
+</div>
+
+<script src="/three.min.js"></script>
+<script src="/OrbitControls.js"></script>
+<script>
+const TOKEN='__TOKEN__', $=id=>document.getElementById(id);
+const fmtB=b=>{ if(!b||b<1) return '0'; const u=['B','KB','MB','GB','TB']; const i=Math.min(4,Math.floor(Math.log(b)/Math.log(1024))); const v=b/Math.pow(1024,i); return (v>=100||i===0?v.toFixed(0):v.toFixed(1)).replace('.',',')+' '+u[i]; };
+const pc=v=>(v||0).toFixed(v>=10?0:1).replace('.',',')+' %';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+async function api(p){
+  const r=await fetch(p,{headers:{'X-Token':TOKEN}});
+  const j=await r.json().catch(()=>({error:'Respuesta no válida'})); if(!r.ok) throw new Error(j.error||('Error '+r.status)); return j;
+}
+
+/* ---------- estado ---------- */
+const MAX=54;                      // edificios en la maqueta; el resto va al bloque "otros"
+let DATA=null, SORT='cpu', PAUSED=false, sel=null, ready=false;
+const items=new Map();             // nombre -> {slot, mesh, line, curve, pulses, cpu, cpuT, h, hT, alive}
+const freeSlots=[];
+
+/* ---------- tres dimensiones ---------- */
+const host=$('city');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.setClearColor(0xe9ecee);
+host.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+const cam=new THREE.OrthographicCamera(-1,1,1,-1,-2000,6000);
+const ctl=new THREE.OrbitControls(cam,renderer.domElement);
+ctl.enableDamping=true; ctl.dampingFactor=.12; ctl.maxPolarAngle=Math.PI*.46; ctl.minZoom=.35; ctl.maxZoom=14; ctl.screenSpacePanning=false;
+scene.add(new THREE.HemisphereLight(0xffffff,0xb9c0c6,.78));
+const sun=new THREE.DirectionalLight(0xfff6ea,.62); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-.0006;
+sun.position.set(60,90,40); sun.target.position.set(0,0,0); scene.add(sun); scene.add(sun.target);
+sun.shadow.camera.left=-90; sun.shadow.camera.right=90; sun.shadow.camera.top=90; sun.shadow.camera.bottom=-90; sun.shadow.camera.updateProjectionMatrix();
+
+const ground=new THREE.Mesh(new THREE.CircleGeometry(44,64),new THREE.MeshLambertMaterial({color:0xdfe3e6}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-.26; ground.receiveShadow=true; scene.add(ground);
+function ring(r,op){                                          // anillos de referencia, como un plano de obra
+  const g=new THREE.BufferGeometry().setFromPoints(new THREE.Path().absarc(0,0,r,0,Math.PI*2,false).getSpacedPoints(96).map(p=>new THREE.Vector3(p.x,0,p.y)));
+  scene.add(new THREE.LineLoop(g,new THREE.LineBasicMaterial({color:0xc3c9cd,transparent:true,opacity:op})));
+}
+
+/* la central: reparte la energía del procesador */
+const coreG=new THREE.Group(); scene.add(coreG);
+const plinth=new THREE.Mesh(new THREE.CylinderGeometry(4.6,5.2,1.1,6),new THREE.MeshLambertMaterial({color:0x1c2630}));
+plinth.position.y=.55; plinth.castShadow=true; plinth.receiveShadow=true; coreG.add(plinth);
+const colMat=new THREE.MeshLambertMaterial({color:0xb4441f});
+const column=new THREE.Mesh(new THREE.CylinderGeometry(1.5,2.0,1,6),colMat);
+column.geometry.translate(0,.5,0); column.position.y=1.1; column.scale.y=4; column.castShadow=true; coreG.add(column);
+const halo=new THREE.Mesh(new THREE.RingGeometry(5.6,6.5,48),new THREE.MeshBasicMaterial({color:0xb4441f,transparent:true,opacity:.3,side:THREE.DoubleSide}));
+halo.rotation.x=-Math.PI/2; halo.position.y=.05; coreG.add(halo);
+
+/* edificios */
+const boxG=new THREE.BoxGeometry(2.9,1,2.9); boxG.translate(0,.5,0);
+const edgeG=new THREE.EdgesGeometry(boxG);
+const edgeMat=new THREE.LineBasicMaterial({color:0x1c2630,transparent:true,opacity:.26});
+const plateG=new THREE.BoxGeometry(4.1,.22,4.1); plateG.translate(0,.11,0);
+const plateMat=new THREE.MeshLambertMaterial({color:0xf6f7f7});
+const selBox=new THREE.LineSegments(edgeG,new THREE.LineBasicMaterial({color:0xb4441f})); selBox.visible=false; scene.add(selBox);
+const C_IDLE=new THREE.Color(0xa7b0b7), C_BUSY=new THREE.Color(0xb4441f);
+const L_IDLE=new THREE.Color(0xb6bec4), L_BUSY=new THREE.Color(0xd2561f);
+
+/* pulsos: un solo objeto con muchas copias, para que no cueste nada dibujarlos */
+const PMAX=520;
+const pulseMesh=new THREE.InstancedMesh(new THREE.OctahedronGeometry(.42),new THREE.MeshBasicMaterial({color:0xd2561f}),PMAX);
+pulseMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); pulseMesh.frustumCulled=false; scene.add(pulseMesh);
+const dummy=new THREE.Object3D();
+
+/* huecos de la maqueta: anillos concéntricos alrededor de la central */
+const SLOTS=[];
+for(let ring=0, r=13; SLOTS.length<MAX+1; ring++, r+=6.4){
+  const n=Math.max(6,Math.floor(2*Math.PI*r/6.1));
+  for(let i=0;i<n && SLOTS.length<MAX+1;i++){
+    const a=(i/n)*Math.PI*2 + (ring%2?Math.PI/n:0);
+    SLOTS.push({x:Math.cos(a)*r, z:Math.sin(a)*r, r:r, free:true});
+  }
+}
+const RMAX=Math.max.apply(null,SLOTS.map(s=>s.r));
+ring(8.4,.45); for(let r=13;r<=RMAX+.1;r+=6.4) ring(r,.42); ring(RMAX+5.5,.3);
+const tags=[];                                                  // etiquetas de los que más gastan
+
+function takeSlot(){ let best=-1; for(let i=0;i<SLOTS.length;i++) if(SLOTS[i].free){best=i;break;} if(best<0) return null; SLOTS[best].free=false; return best; }
+
+function makeItem(name){
+  const si=takeSlot(); if(si===null) return null;
+  const s=SLOTS[si];
+  const g=new THREE.Group(); g.position.set(s.x,0,s.z);
+  const plate=new THREE.Mesh(plateG,plateMat); plate.receiveShadow=true; g.add(plate);
+  const mesh=new THREE.Mesh(boxG,new THREE.MeshLambertMaterial({color:C_IDLE.clone()}));
+  mesh.position.y=.22; mesh.scale.y=.4; mesh.castShadow=true; mesh.receiveShadow=true; g.add(mesh);
+  const edges=new THREE.LineSegments(edgeG,edgeMat); edges.position.y=.22; edges.scale.y=.4; g.add(edges);
+  scene.add(g);
+  const from=new THREE.Vector3(Math.cos(Math.atan2(s.z,s.x))*5.0,1.6,Math.sin(Math.atan2(s.z,s.x))*5.0);
+  const to=new THREE.Vector3(s.x,.5,s.z);
+  const mid=from.clone().lerp(to,.5); mid.y=3.4+s.r*.06;
+  const curve=new THREE.QuadraticBezierCurve3(from,mid,to);
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(26)),
+                            new THREE.LineBasicMaterial({color:L_IDLE.clone(),transparent:true,opacity:.3}));
+  scene.add(line);
+  return {name,slot:si,group:g,mesh,edges,line,curve,cpu:0,cpuT:0,h:.4,hT:.4,ram:0,data:null,phase:Math.random()};
+}
+
+function dropItem(it){
+  scene.remove(it.group); scene.remove(it.line);
+  it.mesh.material.dispose(); it.line.material.dispose(); it.line.geometry.dispose();
+  SLOTS[it.slot].free=true; items.delete(it.name);
+  if(sel===it.name){ sel=null; $('card').style.display='none'; selBox.visible=false; }
+}
+
+/* ---------- datos ---------- */
+function apply(d){
+  DATA=d; ready=d.ready;
+  const top=d.procs.slice(0,MAX);
+  const rest=d.procs.slice(MAX);
+  const maxRam=Math.max(1,...top.map(p=>p.ram));
+  const hOf=ram=>.6+8.2*clamp(Math.log1p(ram/6e6)/Math.log1p(maxRam/6e6),0,1);
+  const seen=new Set();
+  for(const p of top){
+    seen.add(p.name);
+    let it=items.get(p.name);
+    if(!it){ it=makeItem(p.name); if(!it) continue; items.set(p.name,it); }
+    it.data=p; it.ram=p.ram; it.cpuT=p.cpu;
+    it.hT=hOf(p.ram);
+  }
+  const tail=d.rest||{cpu:0,ram:0,n:0,groups:0};
+  if(rest.length||tail.groups){                                 // un bloque para todo lo demás
+    const nG=rest.length+tail.groups;
+    const r={name:'· otros programas',cpu:rest.reduce((a,b)=>a+b.cpu,tail.cpu),ram:rest.reduce((a,b)=>a+b.ram,tail.ram),n:rest.reduce((a,b)=>a+b.n,tail.n),pid:0,path:nG+' programas más'};
+    seen.add(r.name);
+    let it=items.get(r.name); if(!it){ it=makeItem(r.name); if(it) items.set(r.name,it); }
+    if(it){ it.data=r; it.ram=r.ram; it.cpuT=r.cpu; it.hT=hOf(r.ram); }
+  }
+  for(const it of Array.from(items.values())) if(!seen.has(it.name)) dropItem(it);
+  column.scale.y=clamp(1.3+d.cpu*.075,1.3,9);
+  renderSide(d);
+  if(sel) showCard(sel);
+}
+
+function renderSide(d){
+  $('cpuV').textContent=ready?pc(d.cpu):'midiendo…';
+  $('cpuB').style.width=clamp(d.cpu,0,100)+'%';
+  const rt=d.ram&&d.ram.total?d.ram.total:0, ru=d.ram?d.ram.used:0;
+  $('ramV').textContent=rt?fmtB(ru)+' de '+fmtB(rt):fmtB(d.ram?d.ram.procs:0);
+  $('ramB').style.width=(rt?clamp(ru/rt*100,0,100):0)+'%';
+  const list=d.procs.slice();
+  if(SORT==='ram') list.sort((a,b)=>b.ram-a.ram);
+  else if(SORT==='name') list.sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  const mx=Math.max(1,...list.map(p=>p.cpu));
+  $('list').innerHTML=list.map(p=>
+    '<button class="p'+(sel===p.name?' on':'')+'" data-n="'+esc(p.name)+'">'+
+    '<span class="n">'+esc(p.name)+(p.n>1?' <span class="s">×'+p.n+'</span>':'')+'</span>'+
+    '<span class="s">'+(ready?pc(p.cpu):'—')+'</span>'+
+    '<span class="m"><b style="width:'+(ready?clamp(p.cpu/mx*100,0,100):0)+'%"></b></span>'+
+    '<span class="c">'+fmtB(p.ram)+'</span></button>').join('');
+}
+
+function showCard(name){
+  const it=items.get(name), p=it&&it.data ? it.data : (DATA?DATA.procs.find(x=>x.name===name):null);
+  if(!p){ $('card').style.display='none'; return; }
+  $('cN').textContent=p.name; $('cP').textContent=p.path||'';
+  $('cC').textContent=ready?pc(p.cpu):'midiendo…'; $('cR').textContent=fmtB(p.ram);
+  $('cI').textContent=p.n; $('cD').textContent=p.pid||'—';
+  $('card').style.display='block';
+}
+
+function select(name){
+  sel=name;
+  for(const b of document.querySelectorAll('.p')) b.classList.toggle('on',b.dataset.n===name);
+  const it=items.get(name);
+  if(it){ selBox.visible=true; selBox.position.copy(it.group.position); selBox.position.y=.22; selBox.scale.set(1,it.h,1); }
+  else selBox.visible=false;
+  if(name) showCard(name); else $('card').style.display='none';
+}
+
+/* ---------- bucle ---------- */
+let t0=performance.now();
+function frame(){
+  requestAnimationFrame(frame);
+  const now=performance.now(), dt=Math.min(.05,(now-t0)/1000); t0=now;
+  let n=0;
+  for(const it of items.values()){
+    it.cpu+=(it.cpuT-it.cpu)*Math.min(1,dt*4);
+    it.h+=(it.hT-it.h)*Math.min(1,dt*4);
+    it.mesh.scale.y=it.h; it.edges.scale.y=it.h;
+    const k=clamp(it.cpu/14,0,1);
+    it.mesh.material.color.copy(C_IDLE).lerp(C_BUSY,k);
+    it.line.material.color.copy(L_IDLE).lerp(L_BUSY,clamp(it.cpu/8,0,1));
+    it.line.material.opacity=.22+.68*clamp(it.cpu/6,0,1);
+    const np=it.cpu<.12?0:clamp(1+Math.round(it.cpu/2.2),1,8);   // más CPU, más pulsos y más rápidos
+    const sp=.18+clamp(it.cpu,0,40)*.022;
+    for(let i=0;i<np && n<PMAX;i++,n++){
+      const u=((now/1000*sp)+it.phase+i/np)%1;
+      it.curve.getPoint(u,dummy.position);
+      const s=.5+.5*Math.sin(u*Math.PI);
+      dummy.scale.setScalar(s*(.55+clamp(it.cpu/16,0,1)*.9)); dummy.rotation.y=now/400;
+      dummy.updateMatrix(); pulseMesh.setMatrixAt(n,dummy.matrix);
+    }
+  }
+  for(let i=n;i<PMAX;i++){ dummy.scale.setScalar(0); dummy.updateMatrix(); pulseMesh.setMatrixAt(i,dummy.matrix); }
+  pulseMesh.count=PMAX; pulseMesh.instanceMatrix.needsUpdate=true;
+  if(sel){ const it=items.get(sel); if(it) selBox.scale.set(1,it.h,1); }
+  const cp=DATA?DATA.cpu:0;
+  halo.scale.setScalar(1+.05*Math.sin(now/340)*(1+cp/25));
+  halo.material.opacity=.18+.3*clamp(cp/40,0,1);
+  colMat.color.setHSL(.045,.66,clamp(.40+cp/420,.40,.52));
+  ctl.update();
+  renderer.render(scene,cam);
+  drawTags();
+}
+
+function drawTags(){
+  const top=Array.from(items.values()).filter(i=>i.cpu>.4).sort((a,b)=>b.cpu-a.cpu).slice(0,6);
+  while(tags.length<6){ const d=document.createElement('div'); d.className='tag'; $('main').appendChild(d); tags.push(d); }
+  const w=host.clientWidth, h=host.clientHeight;
+  tags.forEach((el,i)=>{
+    const it=top[i];
+    if(!it){ el.style.opacity=0; return; }
+    const v=new THREE.Vector3(it.group.position.x,it.h+.9,it.group.position.z).project(cam);
+    el.textContent=it.name+' · '+pc(it.cpu);
+    el.style.left=((v.x*.5+.5)*w)+'px'; el.style.top=((-v.y*.5+.5)*h)+'px'; el.style.opacity=v.z<1?1:0;
+  });
+}
+
+function fit(){
+  const w=host.clientWidth||1, h=host.clientHeight||1, a=w/h, view=(RMAX+9)*2;
+  cam.left=-view*a/2; cam.right=view*a/2; cam.top=view/2; cam.bottom=-view/2; cam.updateProjectionMatrix();
+}
+function resize(){ const w=host.clientWidth,h=host.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false); fit(); }
+function home(){ cam.position.set(56,50,56); ctl.target.set(0,2,0); cam.zoom=1; cam.updateProjectionMatrix(); ctl.update(); }
+addEventListener('resize',resize);
+
+/* ---------- interacción ---------- */
+const ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown',e=>{ ndc.sx=e.clientX; ndc.sy=e.clientY; });
+renderer.domElement.addEventListener('pointerup',e=>{
+  if(Math.abs(e.clientX-ndc.sx)>4||Math.abs(e.clientY-ndc.sy)>4) return;    // fue un giro, no un clic
+  const r=renderer.domElement.getBoundingClientRect();
+  ndc.x=((e.clientX-r.left)/r.width)*2-1; ndc.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(ndc,cam);
+  const hits=ray.intersectObjects(Array.from(items.values()).map(i=>i.mesh),false);
+  if(hits.length){ const it=Array.from(items.values()).find(i=>i.mesh===hits[0].object); if(it) select(it.name); }
+  else select(null);
+});
+$('list').addEventListener('click',e=>{ const b=e.target.closest('.p'); if(b) select(b.dataset.n); });
+$('cardX').addEventListener('click',()=>select(null));
+$('sort').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return;
+  SORT=b.dataset.s; for(const x of $('sort').children) x.setAttribute('aria-pressed',String(x===b)); if(DATA) renderSide(DATA); });
+$('bPause').addEventListener('click',()=>{ PAUSED=!PAUSED; $('bPause').textContent=PAUSED?'Seguir':'Pausar'; $('bPause').classList.toggle('on',PAUSED); if(!PAUSED) tick(); });
+$('bFit').addEventListener('click',home);
+addEventListener('keydown',e=>{ if(e.key==='Escape') select(null); });
+
+/* ---------- lectura cada segundo y medio ---------- */
+let timer=null;
+async function tick(){
+  clearTimeout(timer);
+  if(PAUSED) return;
+  try{
+    const d=await api('/api/procs');
+    $('warn').style.display='none';
+    if(d.error){ $('warn').textContent=d.error; $('warn').style.display='block'; }
+    else apply(d);
+  }catch(err){
+    $('warn').textContent='No se pudo leer los procesos: '+err.message+'. ¿Sigue abierto el Atlas?';
+    $('warn').style.display='block';
+  }
+  timer=setTimeout(tick,1500);
+}
+resize(); home(); frame(); tick();
+</script>
+</body>
+</html>

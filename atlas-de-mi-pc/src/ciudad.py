@@ -909,6 +909,169 @@ def say(q, path):
 
 
 # ---------------------------------------------------------------- http
+# ---------------------------------------------------------------- procesos
+# Administrador de tareas: quien gasta CPU y memoria ahora mismo.
+# Solo biblioteca estandar: en Windows se pregunta al propio sistema con ctypes,
+# en Linux se lee /proc. No se lanza ningun programa externo.
+PROC_PREV = {'t': 0.0, 'cpu': {}, 'warn': ''}
+
+if WIN:
+    import ctypes
+    import ctypes.wintypes as wt
+
+    class _PMC(ctypes.Structure):
+        _fields_ = [('cb', wt.DWORD), ('PageFaultCount', wt.DWORD),
+                    ('PeakWorkingSetSize', ctypes.c_size_t), ('WorkingSetSize', ctypes.c_size_t),
+                    ('QuotaPeakPagedPoolUsage', ctypes.c_size_t), ('QuotaPagedPoolUsage', ctypes.c_size_t),
+                    ('QuotaPeakNonPagedPoolUsage', ctypes.c_size_t), ('QuotaNonPagedPoolUsage', ctypes.c_size_t),
+                    ('PagefileUsage', ctypes.c_size_t), ('PeakPagefileUsage', ctypes.c_size_t)]
+
+    class _MEM(ctypes.Structure):
+        _fields_ = [('dwLength', wt.DWORD), ('dwMemoryLoad', wt.DWORD),
+                    ('ullTotalPhys', ctypes.c_ulonglong), ('ullAvailPhys', ctypes.c_ulonglong),
+                    ('ullTotalPageFile', ctypes.c_ulonglong), ('ullAvailPageFile', ctypes.c_ulonglong),
+                    ('ullTotalVirtual', ctypes.c_ulonglong), ('ullAvailVirtual', ctypes.c_ulonglong),
+                    ('ullAvailExtendedVirtual', ctypes.c_ulonglong)]
+
+    _K32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    _PSAPI = ctypes.WinDLL('psapi', use_last_error=True)
+    _K32.OpenProcess.restype = wt.HANDLE
+    _K32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
+    _K32.CloseHandle.argtypes = [wt.HANDLE]
+    _K32.GetProcessTimes.argtypes = [wt.HANDLE] + [ctypes.POINTER(wt.FILETIME)] * 4
+    _K32.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD, wt.LPWSTR, ctypes.POINTER(wt.DWORD)]
+    _K32.GlobalMemoryStatusEx.argtypes = [ctypes.POINTER(_MEM)]
+    _PSAPI.EnumProcesses.argtypes = [ctypes.POINTER(wt.DWORD), wt.DWORD, ctypes.POINTER(wt.DWORD)]
+    _PSAPI.GetProcessMemoryInfo.argtypes = [wt.HANDLE, ctypes.POINTER(_PMC), wt.DWORD]
+
+    def _ft(f):
+        return ((f.dwHighDateTime << 32) | f.dwLowDateTime) / 1e7      # FILETIME -> segundos
+
+    def _proc_list():
+        arr = (wt.DWORD * 8192)()
+        got = wt.DWORD()
+        if not _PSAPI.EnumProcesses(arr, ctypes.sizeof(arr), ctypes.byref(got)):
+            return []
+        out = []
+        buf = ctypes.create_unicode_buffer(32768)
+        for i in range(got.value // ctypes.sizeof(wt.DWORD)):
+            pid = int(arr[i])
+            if pid <= 0:
+                continue
+            h = _K32.OpenProcess(0x1000 | 0x0010, False, pid) or _K32.OpenProcess(0x1000, False, pid)
+            if not h:
+                continue
+            try:
+                size = wt.DWORD(len(buf))
+                name = path = ''
+                if _K32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+                    path = buf.value
+                    name = os.path.basename(path)
+                if not name:
+                    continue
+                a, b, kt, ut = wt.FILETIME(), wt.FILETIME(), wt.FILETIME(), wt.FILETIME()
+                cpu = 0.0
+                if _K32.GetProcessTimes(h, ctypes.byref(a), ctypes.byref(b), ctypes.byref(kt), ctypes.byref(ut)):
+                    cpu = _ft(kt) + _ft(ut)
+                pmc = _PMC()
+                pmc.cb = ctypes.sizeof(_PMC)
+                ram = int(pmc.WorkingSetSize) if _PSAPI.GetProcessMemoryInfo(h, ctypes.byref(pmc), pmc.cb) else 0
+                out.append((pid, name, cpu, ram, path))
+            finally:
+                _K32.CloseHandle(h)
+        return out
+
+    def _mem_total():
+        m = _MEM()
+        m.dwLength = ctypes.sizeof(_MEM)
+        if _K32.GlobalMemoryStatusEx(ctypes.byref(m)):
+            return int(m.ullTotalPhys), int(m.ullTotalPhys - m.ullAvailPhys)
+        return 0, 0
+
+else:
+    def _proc_list():
+        out = []
+        try:
+            hz = os.sysconf('SC_CLK_TCK') or 100
+            pg = os.sysconf('SC_PAGE_SIZE')
+        except (ValueError, OSError):
+            return out
+        for pid in os.listdir('/proc'):
+            if not pid.isdigit():
+                continue
+            try:
+                with open('/proc/%s/stat' % pid, 'rb') as f:
+                    st = f.read().decode('utf-8', 'replace')
+                r = st.rindex(')')
+                name = st[st.index('(') + 1:r]
+                rest = st[r + 2:].split()
+                cpu = (int(rest[11]) + int(rest[12])) / hz
+                with open('/proc/%s/statm' % pid, 'rb') as f:
+                    ram = int(f.read().split()[1]) * pg
+                try:
+                    path = os.readlink('/proc/%s/exe' % pid)
+                except OSError:
+                    path = ''
+                out.append((int(pid), name, cpu, ram, path))
+            except (OSError, ValueError, IndexError):
+                continue
+        return out
+
+    def _mem_total():
+        tot = avail = 0
+        try:
+            with open('/proc/meminfo', 'rb') as f:
+                for ln in f.read().decode('utf-8', 'replace').splitlines():
+                    if ln.startswith('MemTotal:'):
+                        tot = int(ln.split()[1]) * 1024
+                    elif ln.startswith('MemAvailable:'):
+                        avail = int(ln.split()[1]) * 1024
+        except (OSError, ValueError, IndexError):
+            return 0, 0
+        return tot, max(0, tot - avail)
+
+
+def procs():
+    """Agrupa los procesos por programa y reparte el consumo de CPU desde la ultima lectura."""
+    now = time.time()
+    try:
+        cur = _proc_list()
+    except Exception as e:                                             # nunca tumbar la pagina por esto
+        return {'error': 'No se pudo leer la lista de procesos (%s).' % e.__class__.__name__,
+                'procs': [], 'cpu': 0, 'cores': os.cpu_count() or 1, 'ready': False}
+    prev, dt = PROC_PREV['cpu'], now - PROC_PREV['t']
+    cores = os.cpu_count() or 1
+    ready = bool(prev) and 0.25 <= dt <= 60
+    groups = {}
+    for pid, name, cpu, ram, path in cur:
+        g = groups.get(name.lower())
+        if g is None:
+            g = groups[name.lower()] = {'name': name, 'cpu': 0.0, 'ram': 0, 'n': 0, 'pid': pid, 'path': path}
+        g['n'] += 1
+        g['ram'] += ram
+        if ready and pid in prev:
+            d = cpu - prev[pid]
+            if d > 0:
+                g['cpu'] += d / dt * 100.0 / cores
+        if ram > groups[name.lower()].get('_top', 0):
+            g['_top'] = ram
+            g['pid'], g['path'] = pid, path
+    PROC_PREV['t'] = now
+    PROC_PREV['cpu'] = dict((p, c) for p, _n, c, _r, _pa in cur)
+    lst = sorted(groups.values(), key=lambda g: (-g['cpu'], -g['ram']))
+    for g in lst:
+        g.pop('_top', None)
+        g['cpu'] = round(min(100.0, g['cpu']), 2)
+    tot, used = _mem_total()
+    top, tail = lst[:120], lst[120:]
+    return {'ready': ready, 'cores': cores, 't': now,
+            'cpu': round(min(100.0, sum(g['cpu'] for g in lst)), 2),
+            'ram': {'total': tot, 'used': used, 'procs': sum(g['ram'] for g in lst)},
+            'count': len(cur), 'procs': top,
+            'rest': {'cpu': round(sum(g['cpu'] for g in tail), 2), 'ram': sum(g['ram'] for g in tail),
+                     'n': sum(g['n'] for g in tail), 'groups': len(tail)}}
+
+
 STATIC = {'/three.min.js': 'application/javascript', '/OrbitControls.js': 'application/javascript'}
 
 
@@ -939,6 +1102,11 @@ class H(BaseHTTPRequestHandler):
                 return self.send(403, {'error': 'host'})
             html = open(os.path.join(RES, 'index.html'), encoding='utf-8').read().replace('__TOKEN__', TOKEN)
             return self.send(200, html.encode('utf-8'), 'text/html; charset=utf-8')
+        if u.path == '/procesos':
+            if self.headers.get('Host', '') not in ('127.0.0.1:%d' % PORT, 'localhost:%d' % PORT):
+                return self.send(403, {'error': 'host'})
+            html = open(os.path.join(RES, 'procesos.html'), encoding='utf-8').read().replace('__TOKEN__', TOKEN)
+            return self.send(200, html.encode('utf-8'), 'text/html; charset=utf-8')
         if u.path in STATIC:
             return self.send(200, open(os.path.join(RES, u.path[1:]), 'rb').read(), STATIC[u.path])
         if not u.path.startswith('/api/'):
@@ -950,6 +1118,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, {'ok': True})
         if u.path == '/api/status':
             return self.send(200, {k: STATE[k] for k in ('done', 'files', 'current', 'running')})
+        if u.path == '/api/procs':
+            return self.send(200, procs())
         if not STATE['done']:
             return self.send(409, {'error': 'El censo sigue en curso.'})
         if u.path == '/api/city':
