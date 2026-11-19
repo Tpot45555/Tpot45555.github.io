@@ -75,7 +75,6 @@
     if (!document.getElementById('amCss')) {
       const st = el('style'); st.id = 'amCss'; st.textContent = CSS; document.head.appendChild(st);
     }
-    try { window.name = 'atlas-' + opt.current; } catch (e) {}
     const aqui = SECCIONES.find(s => s.id === opt.current);
 
     const rail = el('div', 'amRail');
@@ -105,7 +104,7 @@
         a.addEventListener('click', e => {
           e.preventDefault(); close();
           if (s.id === opt.current) return;
-          window.open(s.href, 'atlas-' + s.id);        // cada apartado tiene su pestana; si ya esta abierta, la reutiliza
+          location.href = s.href;                      // dentro de la misma ventana: es una aplicacion, no un navegador
         });
         if (s.id === opt.current) a.setAttribute('aria-current', 'true');
         panel.appendChild(a);

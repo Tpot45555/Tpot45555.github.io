@@ -562,10 +562,14 @@ function legend(){ $('legend').innerHTML=(MODE==='tipo'?Object.values(CATS).map(
 
 /* ---------- boot: wait for the census ---------- */
 legend();
+/* La portada se ve una vez por sesion: al volver de otro apartado no estorba. */
+let VISTA=false; try{ VISTA=sessionStorage.getItem('atlas.portada')==='1'; }catch(e){}
+if(VISTA){ const s0=$('splash'); if(s0) s0.remove(); }
+else{ try{ sessionStorage.setItem('atlas.portada','1'); }catch(e){} }
 const SPLASH_HASTA=Date.now()+2200;
 async function cerrarSplash(){
-  await new Promise(r=>setTimeout(r,Math.max(0,SPLASH_HASTA-Date.now())));
   const s=$('splash'); if(!s) return;
+  await new Promise(r=>setTimeout(r,Math.max(0,SPLASH_HASTA-Date.now())));
   s.classList.add('off'); setTimeout(()=>s.remove(),450);
 }
 async function boot(){
