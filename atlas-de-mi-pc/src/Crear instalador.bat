@@ -9,7 +9,7 @@ echo.
 echo [1/3] Construyendo la aplicacion...
 py -3 -m pip install --upgrade pyinstaller
 if errorlevel 1 goto fallo
-py -3 -m PyInstaller --noconfirm --clean --windowed --icon "atlas.ico" --name "Atlas de mi PC" --distpath "dist-app" --workpath "build-inst" --specpath "build-inst" --add-data "index.html;." --add-data "procesos.html;." --add-data "menu.js;." --add-data "Line2.js;." --add-data "three.min.js;." --add-data "OrbitControls.js;." ciudad.py
+py -3 -m PyInstaller --noconfirm --clean --windowed --icon "%~dp0atlas.ico" --name "Atlas de mi PC" --distpath "%~dp0dist-app" --workpath "%~dp0build-inst" --specpath "%~dp0build-inst" --exclude-module pygame --exclude-module numpy --exclude-module PIL --exclude-module tkinter --exclude-module matplotlib --add-data "%~dp0index.html;." --add-data "%~dp0procesos.html;." --add-data "%~dp0menu.js;." --add-data "%~dp0Line2.js;." --add-data "%~dp0three.min.js;." --add-data "%~dp0OrbitControls.js;." "%~dp0ciudad.py"
 if errorlevel 1 goto fallo
 if not exist "dist-app\Atlas de mi PC\Atlas de mi PC.exe" goto fallo
 
