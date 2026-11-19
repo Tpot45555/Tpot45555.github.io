@@ -112,7 +112,6 @@ h1{font:600 24px/1.05 var(--display);margin:2px 0 0}
 
 <div id="main">
   <div id="bar">
-    <div id="menuSlot"></div>
     <div id="tools" hidden>
       <button class="btn" id="bPause">Pausar</button>
       <button class="btn" id="bFit">Encuadrar</button>
@@ -473,7 +472,7 @@ function paso(dt,now){
 function frame(now){
   requestAnimationFrame(frame);
   if(document.hidden) return;
-  if(now-ultimo<32) return;                             // 30 cuadros por segundo como mucho
+  if(now-ultimo<CAP) return;                            // el tope lo fija el menu: 30 o 60
   const dt=Math.min(.08,(now-ultimo)/1000); ultimo=now;
   const algo=paso(dt,now), movio=ctl.update();
   if(!algo&&!movio&&!sucio) return;
@@ -552,8 +551,10 @@ async function tick(){
   }
   timer=setTimeout(tick, document.hasFocus()?1500:3000);
 }
+let CAP=AtlasMenu.intervalo();
+addEventListener('atlasfps',()=>{ CAP=AtlasMenu.intervalo(); sucio=true; });
 AtlasMenu.mount({
-  mount:$('menuSlot'), current:'procesos',
+  current:'procesos',
   groups:[
     {title:'Vista', items:()=>[{label:'Encuadrar', run:home}]},
     {title:'Actualización', items:()=>[{label:PAUSED?'Seguir':'Pausar', on:PAUSED, run:()=>$('bPause').click()}]}

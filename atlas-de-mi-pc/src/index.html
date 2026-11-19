@@ -139,7 +139,7 @@ dt{color:var(--muted)} dd{margin:0;text-align:right;font-family:var(--mono);font
   <div id="legend"></div>
 </aside>
 <main id="main">
-  <div id="bar"><div id="menuSlot"></div><nav id="crumbs" aria-label="Ruta"></nav><div id="tools" hidden><div class="seg" id="mode" role="group" aria-label="Color de los bloques"><button data-m="tipo" aria-pressed="true">Tipo</button><button data-m="old" aria-pressed="false">Abandono</button><button data-m="junk" aria-pressed="false">Basura</button></div><button class="btn" id="bRep">Informes</button><button class="btn" id="bCart">Carrito</button><button class="btn" id="bJar">Jarvis</button></div></div>
+  <div id="bar"><nav id="crumbs" aria-label="Ruta"></nav><div id="tools" hidden><div class="seg" id="mode" role="group" aria-label="Color de los bloques"><button data-m="tipo" aria-pressed="true">Tipo</button><button data-m="old" aria-pressed="false">Abandono</button><button data-m="junk" aria-pressed="false">Basura</button></div><button class="btn" id="bRep">Informes</button><button class="btn" id="bCart">Carrito</button><button class="btn" id="bJar">Jarvis</button></div></div>
   <div id="city"></div>
   <div id="hint">clic: ficha · doble clic: entrar · Retroceso: subir · C: al carrito · Supr: papelera · arrastrar: girar · rueda: zoom</div>
   <div id="tip"></div>
@@ -224,11 +224,12 @@ function flyTo(x,z,zoom){
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   anim=now=>{ let k=reduce?1:Math.min(1,(now-s)/550); k=k*k*(3-2*k); ctl.target.lerpVectors(t0,t1,k); cam.position.copy(ctl.target).add(off); cam.zoom=z0+(zoom-z0)*k; cam.updateProjectionMatrix(); if(k>=1) anim=null; };
 }
-/* 30 cuadros por segundo bastan, y con la pestaña oculta no se dibuja nada. */
-let _ult=0;
+/* El tope lo fija el menu (30 o 60); con la pestaña oculta no se dibuja nada. */
+let _ult=0, _cap=32;
+addEventListener('atlasfps',()=>{ _cap=window.AtlasMenu?AtlasMenu.intervalo():32; });
 (function tick(now){ requestAnimationFrame(tick);
   if(document.hidden) return;
-  if(now-_ult<32) return; _ult=now;
+  if(now-_ult<_cap) return; _ult=now;
   if(anim) anim(now); ctl.update(); renderer.render(scene,cam);
 })();
 new ResizeObserver(resize).observe(host);
@@ -552,8 +553,8 @@ async function boot(){
 <script src="/menu.js"></script>
 <script>
 /* El menu acciona los controles que ya existen: la logica de la ciudad no cambia. */
+_cap = AtlasMenu.intervalo();
 AtlasMenu.mount({
-  mount: document.getElementById('menuSlot'),
   current: 'ciudad',
   groups: [
     {title:'Color de los bloques', items:()=>Array.from(document.querySelectorAll('#mode button')).map(b=>
