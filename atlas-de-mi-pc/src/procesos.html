@@ -314,29 +314,40 @@ function dropItem(it){
 /* ---------- datos ---------- */
 function apply(d){
   DATA=d; ready=d.ready;
-  const top=d.procs.slice(0,MAX);
-  const rest=d.procs.slice(MAX);
+  // si va a haber cola, se reserva el ultimo solar para el bloque que la resume
+  const cola=d.procs.length>MAX||!!(d.rest&&d.rest.groups), lim=cola?MAX-1:MAX;
+  const top=d.procs.slice(0,lim);
+  const rest=d.procs.slice(lim);
   const maxRam=Math.max(1,...top.map(p=>p.ram));
   const hOf=ram=>.9+8.0*clamp(Math.log1p(ram/6e6)/Math.log1p(maxRam/6e6),0,1);
-  const seen=new Set();
-  for(const p of top){
-    seen.add(p.name);
+  const tail=d.rest||{cpu:0,ram:0,n:0,groups:0};
+  const fila=top.slice();
+  if(rest.length||tail.groups){                                 // un bloque para todo lo demás
+    const nG=rest.length+tail.groups;
+    fila.push({name:'· otros programas',cpu:rest.reduce((a,b)=>a+b.cpu,tail.cpu),ram:rest.reduce((a,b)=>a+b.ram,tail.ram),
+               n:rest.reduce((a,b)=>a+b.n,tail.n),pid:0,path:nG+' programas más'});
+  }
+  // primero se van los que ya no están: así sus solares quedan libres para los que entran
+  const seen=new Set(fila.map(p=>p.name));
+  for(const it of Array.from(items.values())) if(!seen.has(it.name)) dropItem(it);
+  for(const p of fila){
     let it=items.get(p.name);
     if(!it){ it=makeItem(p.name); if(!it) continue; items.set(p.name,it); }
     it.data=p; it.ram=p.ram; it.cpuT=p.cpu;
     it.hT=hOf(p.ram);
   }
-  const tail=d.rest||{cpu:0,ram:0,n:0,groups:0};
-  if(rest.length||tail.groups){                                 // un bloque para todo lo demás
-    const nG=rest.length+tail.groups;
-    const r={name:'· otros programas',cpu:rest.reduce((a,b)=>a+b.cpu,tail.cpu),ram:rest.reduce((a,b)=>a+b.ram,tail.ram),n:rest.reduce((a,b)=>a+b.n,tail.n),pid:0,path:nG+' programas más'};
-    seen.add(r.name);
-    let it=items.get(r.name); if(!it){ it=makeItem(r.name); if(it) items.set(r.name,it); }
-    if(it){ it.data=r; it.ram=r.ram; it.cpuT=r.cpu; it.hT=hOf(r.ram); }
-  }
-  for(const it of Array.from(items.values())) if(!seen.has(it.name)) dropItem(it);
   if(d.cores&&d.cores!==nCores) construirNucleos(Math.min(64,d.cores));
-  const per=d.per&&d.per.length===nucleos.length?d.per:null;
+  let per=null;                                                 // carga por casilla
+  if(d.per&&d.per.length&&nucleos.length){
+    if(d.per.length===nucleos.length) per=d.per;
+    else{                                                       // mas nucleos que casillas: cada casilla promedia los suyos
+      per=nucleos.map((_,i)=>{
+        const a=Math.floor(i*d.per.length/nucleos.length), b=Math.floor((i+1)*d.per.length/nucleos.length);
+        let s=0,n=0; for(let k=a;k<Math.max(b,a+1);k++){ s+=d.per[k]||0; n++; }
+        return n?s/n:0;
+      });
+    }
+  }
   nucleos.forEach((t,i)=>{ t.obj=clamp((per?per[i]:d.cpu)/100,0,1); });
   sun.shadow.needsUpdate=true;
   renderSide(d);
