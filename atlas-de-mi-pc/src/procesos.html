@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Administrador de tareas — Atlas de mi PC</title>
+<link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -18,6 +19,7 @@
   --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%;margin:0}
 body{background:var(--paper);color:var(--ink);font:14px/1.45 var(--body);display:grid;grid-template-columns:340px 1fr;grid-template-rows:100%;overflow:hidden}
 button,input{font:inherit;color:inherit}
@@ -68,6 +70,17 @@ h1{font:600 24px/1.05 var(--display);margin:2px 0 0}
 #card dt{color:var(--muted)}
 #card dd{margin:0;font-variant-numeric:tabular-nums;text-align:right}
 #card .x{position:absolute;top:8px;right:10px;border:0;background:none;cursor:pointer;color:var(--muted);font-size:15px}
+#cInst{margin-top:12px;border-top:1px solid var(--line);max-height:232px;overflow:auto}
+.pi{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font:12px var(--mono);font-variant-numeric:tabular-nums}
+.pi .pid{color:var(--muted)}
+.pi .kill{border:1px solid var(--line);background:#fff;border-radius:3px;padding:2px 7px;cursor:pointer;font:11px var(--body);color:var(--accent)}
+.pi .kill:hover{border-color:var(--accent)}
+#cAsk{margin-top:10px;font-size:12.5px;color:var(--ink)}
+#cAsk .box{border:1px solid var(--accent);border-radius:4px;padding:9px 10px;background:#fdf3ef}
+#cAsk .row{display:flex;gap:8px;margin-top:8px}
+#cAsk button{border:1px solid var(--line);background:#fff;border-radius:3px;padding:4px 11px;cursor:pointer;font:12px var(--body)}
+#cAsk button.si{background:var(--accent);border-color:var(--accent);color:#fff}
+#cAsk .ko{color:var(--accent)}
 #warn{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--line);border-radius:5px;padding:14px 18px;max-width:340px;text-align:center;color:var(--muted);display:none;z-index:5}
 </style>
 </head>
@@ -98,15 +111,17 @@ h1{font:600 24px/1.05 var(--display);margin:2px 0 0}
 
 <div id="main">
   <div id="bar">
-    <a class="btn" href="/">← La ciudad</a>
-    <div id="tools">
+    <div id="menuSlot"></div>
+    <div id="tools" hidden>
       <button class="btn" id="bPause">Pausar</button>
       <button class="btn" id="bFit">Encuadrar</button>
     </div>
   </div>
   <div id="city"></div>
   <div id="card"><button class="x" id="cardX" aria-label="Cerrar">✕</button><h2 id="cN"></h2><div class="meta" id="cP"></div>
-    <dl><dt>Procesador</dt><dd id="cC"></dd><dt>Memoria</dt><dd id="cR"></dd><dt>Procesos</dt><dd id="cI"></dd><dt>PID</dt><dd id="cD"></dd></dl>
+    <dl><dt>Procesador</dt><dd id="cC"></dd><dt>Memoria</dt><dd id="cR"></dd><dt>Procesos</dt><dd id="cI"></dd></dl>
+    <div id="cInst"></div>
+    <div id="cAsk"></div>
   </div>
   <div id="warn"></div>
   <div id="hint">clic: ficha · arrastrar: girar · rueda: zoom · la central del centro reparte el procesador</div>
@@ -114,6 +129,8 @@ h1{font:600 24px/1.05 var(--display);margin:2px 0 0}
 
 <script src="/three.min.js"></script>
 <script src="/OrbitControls.js"></script>
+<script src="/Line2.js"></script>
+<script src="/menu.js"></script>
 <script>
 const TOKEN='__TOKEN__', $=id=>document.getElementById(id);
 const fmtB=b=>{ if(!b||b<1) return '0'; const u=['B','KB','MB','GB','TB']; const i=Math.min(4,Math.floor(Math.log(b)/Math.log(1024))); const v=b/Math.pow(1024,i); return (v>=100||i===0?v.toFixed(0):v.toFixed(1)).replace('.',',')+' '+u[i]; };
@@ -187,11 +204,17 @@ const plateG=new THREE.BoxGeometry(4.3,.22,4.3); plateG.translate(0,.11,0);
 const plateMat=new THREE.MeshLambertMaterial({color:0xf6f7f7});
 const selBox=new THREE.LineSegments(edgeG,new THREE.LineBasicMaterial({color:0xb4441f})); selBox.visible=false; scene.add(selBox);
 const C_IDLE=new THREE.Color(0xa7b0b7), C_BUSY=new THREE.Color(0xb4441f);
-const L_IDLE=new THREE.Color(0x98a2aa), L_BUSY=new THREE.Color(0xd2561f);
+const L_IDLE=new THREE.Color(0x9aa4ab), L_BUSY=new THREE.Color(0xd2561f);
+/* Los conductos son geometria, no lineas de un pixel: asi tienen grosor de verdad. */
+const lineMats=[];
+function lineMat(o){
+  const m=new THREE.LineMaterial(Object.assign({transparent:true},o));
+  m.resolution.set(innerWidth,innerHeight); lineMats.push(m); return m;
+}
 
 /* pulsos: cubos pequeños, un solo objeto con muchas copias */
 const PMAX=520;
-const pulseMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(.62,.62,.62),new THREE.MeshBasicMaterial({color:0xd2561f}),PMAX);
+const pulseMesh=new THREE.InstancedMesh(new THREE.BoxGeometry(.66,.66,.66),new THREE.MeshBasicMaterial({color:0xd2561f}),PMAX);
 pulseMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); pulseMesh.frustumCulled=false; scene.add(pulseMesh);
 const dummy=new THREE.Object3D();
 
@@ -243,15 +266,21 @@ function makeItem(name){
   const box=new THREE.Mesh(new THREE.BoxGeometry(.7,.5,.7),inkMat);
   box.position.set(-sx*2.1,.25,0); box.castShadow=true; g.add(box);
   const path=conduit(s,si);
-  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(path.pts),
-                            new THREE.LineBasicMaterial({color:L_IDLE.clone(),transparent:true,opacity:.45}));
-  scene.add(line);
-  return {name:name,slot:si,group:g,mesh:mesh,edges:edges,line:line,path:path,cpu:0,cpuT:0,h:.4,hT:.4,ram:0,data:null,phase:Math.random()};
+  const flat=[]; for(const q of path.pts) flat.push(q.x,q.y,q.z);
+  const geo=new THREE.LineGeometry(); geo.setPositions(flat);
+  const base=new THREE.Line2(geo,lineMat({color:0x9aa4ab,linewidth:3.0,opacity:.92}));
+  base.computeLineDistances(); scene.add(base);
+  const geo2=new THREE.LineGeometry(); geo2.setPositions(flat);
+  const flow=new THREE.Line2(geo2,lineMat({color:0xd2561f,linewidth:5.2,opacity:.25,dashed:true,dashSize:1.5,gapSize:2.3}));
+  flow.computeLineDistances(); flow.renderOrder=2; scene.add(flow);
+  return {name:name,slot:si,group:g,mesh:mesh,edges:edges,base:base,flow:flow,path:path,
+          cpu:0,cpuT:0,h:.4,hT:.4,ram:0,data:null,phase:Math.random()};
 }
 
 function dropItem(it){
-  scene.remove(it.group); scene.remove(it.line);
-  it.mesh.material.dispose(); it.line.material.dispose(); it.line.geometry.dispose();
+  scene.remove(it.group); scene.remove(it.base); scene.remove(it.flow);
+  it.mesh.material.dispose();
+  for(const l of [it.base,it.flow]){ const i=lineMats.indexOf(l.material); if(i>=0) lineMats.splice(i,1); l.material.dispose(); l.geometry.dispose(); }
   SLOTS[it.slot].free=true; items.delete(it.name);
   if(sel===it.name){ sel=null; $('card').style.display='none'; selBox.visible=false; }
 }
@@ -282,7 +311,7 @@ function apply(d){
   for(const it of Array.from(items.values())) if(!seen.has(it.name)) dropItem(it);
   column.scale.y=clamp(1.4+d.cpu*.085,1.4,10); colEdge.scale.y=column.scale.y; cap.position.y=1.3+column.scale.y;
   renderSide(d);
-  if(sel) showCard(sel);
+  if(sel && !ASK) showCard(sel);
 }
 
 function renderSide(d){
@@ -308,9 +337,41 @@ function showCard(name){
   if(!p){ $('card').style.display='none'; return; }
   $('cN').textContent=p.name; $('cP').textContent=p.path||'';
   $('cC').textContent=ready?pc(p.cpu):'midiendo…'; $('cR').textContent=fmtB(p.ram);
-  $('cI').textContent=p.n; $('cD').textContent=p.pid||'—';
+  $('cI').textContent=p.n;
+  const inst=p.inst||[];
+  $('cInst').innerHTML=inst.map(i=>'<div class="pi"><span class="pid">PID '+i.pid+'</span>'+
+    '<span>'+(ready?pc(i.cpu):'—')+' · '+fmtB(i.ram)+'</span>'+
+    '<button class="kill" data-pid="'+i.pid+'">Terminar</button></div>').join('')||
+    '<div class="pi"><span class="pid">sin detalle</span><span></span><span></span></div>';
+  if(!ASK) $('cAsk').innerHTML=inst.length>1?'<button class="kill" data-all="1">Terminar los '+inst.length+'</button>':'';
   $('card').style.display='block';
 }
+
+/* Cerrar un programa es irreversible: se pregunta antes, con nombre y PID. */
+let ASK=null;
+function ask(pids,label){
+  ASK={pids:pids};
+  $('cAsk').innerHTML='<div class="box">¿Cerrar <b>'+esc(label)+'</b>? Se perderá lo que no esté guardado.'+
+    '<div class="row"><button class="si" id="askSi">Sí, cerrar</button><button id="askNo">No</button></div></div>';
+  $('askSi').onclick=async()=>{
+    const lista=ASK.pids.slice(), n=lista.length; ASK=null;
+    $('cAsk').innerHTML='<span class="pid">cerrando…</span>';
+    try{
+      const r=await fetch('/api/kill',{method:'POST',headers:{'X-Token':TOKEN,'Content-Type':'application/json'},body:JSON.stringify({pids:lista})});
+      const j=await r.json();
+      $('cAsk').innerHTML=j.errors&&j.errors.length?'<span class="ko">'+esc(j.errors[0])+'</span>'
+        :'<span class="pid">cerrado'+(n>1?'s '+j.closed:'')+'</span>';
+    }catch(e){ $('cAsk').innerHTML='<span class="ko">No se pudo: '+esc(e.message)+'</span>'; }
+    setTimeout(tick,600);
+  };
+  $('askNo').onclick=()=>{ ASK=null; if(sel) showCard(sel); };
+}
+$('card').addEventListener('click',e=>{
+  const b=e.target.closest('.kill'); if(!b) return;
+  const it=items.get(sel), p=it&&it.data?it.data:null; if(!p) return;
+  if(b.dataset.all) ask((p.inst||[]).map(i=>i.pid), p.name+' · '+p.inst.length+' procesos');
+  else ask([+b.dataset.pid], p.name+' · PID '+b.dataset.pid);
+});
 
 function select(name){
   sel=name;
@@ -333,9 +394,13 @@ function frame(){
     it.mesh.scale.y=it.h; it.edges.scale.y=it.h;
     const k=clamp(it.cpu/14,0,1);
     it.mesh.material.color.copy(C_IDLE).lerp(C_BUSY,k);
-    it.line.material.color.copy(L_IDLE).lerp(L_BUSY,clamp(it.cpu/8,0,1));
-    it.line.material.opacity=.42+.5*clamp(it.cpu/6,0,1);
-    const np=it.cpu<.12?0:clamp(1+Math.round(it.cpu/2.2),1,8);   // más CPU, más pulsos y más rápidos
+    const q=clamp(it.cpu/8,0,1);
+    it.base.material.color.copy(L_IDLE).lerp(L_BUSY,q*.75);
+    it.base.material.linewidth=2.9+2.1*q;
+    it.flow.material.opacity=.14+.86*clamp(it.cpu/5,0,1);
+    it.flow.material.linewidth=4.4+3.4*q;
+    it.flow.material.dashOffset-=dt*(.9+clamp(it.cpu,0,45)*.28);        // la corriente avanza hacia el edificio
+    const np=it.cpu<.35?0:clamp(1+Math.round(it.cpu/6),1,5);     // los paquetes que llegan a la obra
     const sp=.18+clamp(it.cpu,0,40)*.022;
     for(let i=0;i<np && n<PMAX;i++,n++){
       const u=((now/1000*sp)+it.phase+i/np)%1;
@@ -359,12 +424,18 @@ function drawTags(){
   const top=Array.from(items.values()).filter(i=>i.cpu>.4).sort((a,b)=>b.cpu-a.cpu).slice(0,6);
   while(tags.length<6){ const d=document.createElement('div'); d.className='tag'; $('main').appendChild(d); tags.push(d); }
   const w=host.clientWidth, h=host.clientHeight;
+  const puestos=[];
   tags.forEach((el,i)=>{
     const it=top[i];
     if(!it){ el.style.opacity=0; return; }
     const v=new THREE.Vector3(it.group.position.x,it.h+.9,it.group.position.z).project(cam);
+    const x=(v.x*.5+.5)*w, y=(-v.y*.5+.5)*h;
+    let choca=false;                                        // si dos etiquetas se pisan, se oculta la de menos CPU
+    for(const q of puestos) if(Math.abs(q[0]-x)<150 && Math.abs(q[1]-y)<20){ choca=true; break; }
+    if(choca||v.z>=1){ el.style.opacity=0; return; }
+    puestos.push([x,y]);
     el.textContent=it.name+' · '+pc(it.cpu);
-    el.style.left=((v.x*.5+.5)*w)+'px'; el.style.top=((-v.y*.5+.5)*h)+'px'; el.style.opacity=v.z<1?1:0;
+    el.style.left=x+'px'; el.style.top=y+'px'; el.style.opacity=1;
   });
 }
 
@@ -372,7 +443,9 @@ function fit(){
   const w=host.clientWidth||1, h=host.clientHeight||1, a=w/h, view=EXT*2+8;
   cam.left=-view*a/2; cam.right=view*a/2; cam.top=view/2; cam.bottom=-view/2; cam.updateProjectionMatrix();
 }
-function resize(){ const w=host.clientWidth,h=host.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false); fit(); }
+function resize(){ const w=host.clientWidth,h=host.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false);
+  for(const m of lineMats) m.resolution.set(w,h);
+  fit(); }
 function home(){ cam.position.set(58,52,58); ctl.target.set(0,2,0); cam.zoom=1; cam.updateProjectionMatrix(); ctl.update(); }
 addEventListener('resize',resize);
 
@@ -412,6 +485,13 @@ async function tick(){
   }
   timer=setTimeout(tick,1500);
 }
+AtlasMenu.mount({
+  mount:$('menuSlot'), current:'procesos',
+  groups:[
+    {title:'Vista', items:()=>[{label:'Encuadrar', run:home}]},
+    {title:'Actualización', items:()=>[{label:PAUSED?'Seguir':'Pausar', on:PAUSED, run:()=>$('bPause').click()}]}
+  ]
+});
 resize(); home(); frame(); tick();
 </script>
 </body>

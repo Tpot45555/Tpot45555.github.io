@@ -5,7 +5,7 @@ a = Analysis(
     ['ciudad.py'],
     pathex=[],
     binaries=[],
-    datas=[('index.html', '.'), ('procesos.html', '.'), ('three.min.js', '.'), ('OrbitControls.js', '.')],
+    datas=[('index.html', '.'), ('procesos.html', '.'), ('menu.js', '.'), ('Line2.js', '.'), ('three.min.js', '.'), ('OrbitControls.js', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

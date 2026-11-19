@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Atlas de mi PC</title>
+<link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -17,6 +18,7 @@
   --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%;margin:0}
 body{background:var(--paper);color:var(--ink);font:14px/1.45 var(--body);display:grid;grid-template-columns:340px 1fr;grid-template-rows:100%;overflow:hidden}
 button,input{font:inherit;color:inherit}
@@ -137,7 +139,7 @@ dt{color:var(--muted)} dd{margin:0;text-align:right;font-family:var(--mono);font
   <div id="legend"></div>
 </aside>
 <main id="main">
-  <div id="bar"><nav id="crumbs" aria-label="Ruta"></nav><div id="tools"><div class="seg" id="mode" role="group" aria-label="Color de los bloques"><button data-m="tipo" aria-pressed="true">Tipo</button><button data-m="old" aria-pressed="false">Abandono</button><button data-m="junk" aria-pressed="false">Basura</button></div><button class="btn" id="bRep">Informes</button><button class="btn" id="bCart">Carrito</button><button class="btn" id="bJar">Jarvis</button><a class="btn" id="bProc" href="/procesos" target="_blank" rel="noopener" title="Abre en otra pestana el administrador de tareas">Procesos</a></div></div>
+  <div id="bar"><div id="menuSlot"></div><nav id="crumbs" aria-label="Ruta"></nav><div id="tools" hidden><div class="seg" id="mode" role="group" aria-label="Color de los bloques"><button data-m="tipo" aria-pressed="true">Tipo</button><button data-m="old" aria-pressed="false">Abandono</button><button data-m="junk" aria-pressed="false">Basura</button></div><button class="btn" id="bRep">Informes</button><button class="btn" id="bCart">Carrito</button><button class="btn" id="bJar">Jarvis</button></div></div>
   <div id="city"></div>
   <div id="hint">clic: ficha · doble clic: entrar · Retroceso: subir · C: al carrito · Supr: papelera · arrastrar: girar · rueda: zoom</div>
   <div id="tip"></div>
@@ -540,6 +542,20 @@ async function boot(){
   $('wait').classList.remove('show'); await openCity();
 }
 (document.fonts&&document.fonts.load?Promise.race([document.fonts.load('600 26px "IBM Plex Sans Condensed"').then(()=>document.fonts.load('400 17px "IBM Plex Mono"')),new Promise(r=>setTimeout(r,1500))]):Promise.resolve()).then(boot,boot);
+</script>
+<script src="/menu.js"></script>
+<script>
+/* El menu acciona los controles que ya existen: la logica de la ciudad no cambia. */
+AtlasMenu.mount({
+  mount: document.getElementById('menuSlot'),
+  current: 'ciudad',
+  groups: [
+    {title:'Color de los bloques', items:()=>Array.from(document.querySelectorAll('#mode button')).map(b=>
+      ({label:b.textContent, on:b.getAttribute('aria-pressed')==='true', run:()=>b.click()}))},
+    {title:'Herramientas', items:()=>['bRep','bCart','bJar'].map(i=>document.getElementById(i)).filter(Boolean).map(b=>
+      ({label:b.textContent, run:()=>b.click()}))}
+  ]
+});
 </script>
 </body>
 </html>

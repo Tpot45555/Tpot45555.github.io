@@ -941,6 +941,7 @@ if WIN:
     _K32.GetProcessTimes.argtypes = [wt.HANDLE] + [ctypes.POINTER(wt.FILETIME)] * 4
     _K32.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD, wt.LPWSTR, ctypes.POINTER(wt.DWORD)]
     _K32.GlobalMemoryStatusEx.argtypes = [ctypes.POINTER(_MEM)]
+    _K32.TerminateProcess.argtypes = [wt.HANDLE, wt.UINT]
     _PSAPI.EnumProcesses.argtypes = [ctypes.POINTER(wt.DWORD), wt.DWORD, ctypes.POINTER(wt.DWORD)]
     _PSAPI.GetProcessMemoryInfo.argtypes = [wt.HANDLE, ctypes.POINTER(_PMC), wt.DWORD]
 
@@ -1031,6 +1032,49 @@ else:
         return tot, max(0, tot - avail)
 
 
+# Procesos que no se dejan cerrar: cerrarlos tumba la sesion o el propio Windows.
+CRITICOS = {'system', 'system idle process', 'registry', 'memory compression', 'secure system',
+            'smss.exe', 'csrss.exe', 'wininit.exe', 'winlogon.exe', 'services.exe', 'lsass.exe',
+            'lsm.exe', 'svchost.exe', 'dwm.exe', 'fontdrvhost.exe', 'ntoskrnl.exe',
+            'init', 'systemd', 'launchd'}
+
+
+def kill_proc(pid):
+    """Cierra un proceso. Devuelve None si se cerro, o el motivo por el que no."""
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return 'Identificador no valido.'
+    if pid <= 4:
+        return 'Ese proceso es del nucleo del sistema.'
+    if pid == os.getpid():
+        return 'Ese es el propio Atlas: cierralo con Apagar.'
+    name = ''
+    for p, n, _c, _r, _pa in _proc_list():
+        if p == pid:
+            name = n
+            break
+    if not name:
+        return 'Ese proceso ya no esta en marcha.'
+    if name.lower() in CRITICOS:
+        return 'No se puede cerrar %s: es parte del sistema.' % name
+    if WIN:
+        h = _K32.OpenProcess(0x0001, False, pid)                       # PROCESS_TERMINATE
+        if not h:
+            return 'Windows no deja cerrar %s desde aqui.' % name
+        try:
+            ok = _K32.TerminateProcess(h, 1)
+        finally:
+            _K32.CloseHandle(h)
+        return None if ok else 'No se pudo cerrar %s.' % name
+    import signal as _sig
+    try:
+        os.kill(pid, _sig.SIGTERM)
+    except OSError as e:
+        return 'No se pudo cerrar %s (%s).' % (name, e.__class__.__name__)
+    return None
+
+
 def procs():
     """Agrupa los procesos por programa y reparte el consumo de CPU desde la ultima lectura."""
     now = time.time()
@@ -1046,14 +1090,18 @@ def procs():
     for pid, name, cpu, ram, path in cur:
         g = groups.get(name.lower())
         if g is None:
-            g = groups[name.lower()] = {'name': name, 'cpu': 0.0, 'ram': 0, 'n': 0, 'pid': pid, 'path': path}
-        g['n'] += 1
-        g['ram'] += ram
+            g = groups[name.lower()] = {'name': name, 'cpu': 0.0, 'ram': 0, 'n': 0,
+                                        'pid': pid, 'path': path, 'inst': []}
+        pcpu = 0.0
         if ready and pid in prev:
             d = cpu - prev[pid]
             if d > 0:
-                g['cpu'] += d / dt * 100.0 / cores
-        if ram > groups[name.lower()].get('_top', 0):
+                pcpu = d / dt * 100.0 / cores
+        g['n'] += 1
+        g['ram'] += ram
+        g['cpu'] += pcpu
+        g['inst'].append({'pid': pid, 'cpu': round(min(100.0, pcpu), 2), 'ram': ram})
+        if ram > g.get('_top', 0):
             g['_top'] = ram
             g['pid'], g['path'] = pid, path
     PROC_PREV['t'] = now
@@ -1062,6 +1110,8 @@ def procs():
     for g in lst:
         g.pop('_top', None)
         g['cpu'] = round(min(100.0, g['cpu']), 2)
+        g['inst'].sort(key=lambda i: (-i['cpu'], -i['ram']))
+        del g['inst'][24:]
     tot, used = _mem_total()
     top, tail = lst[:120], lst[120:]
     return {'ready': ready, 'cores': cores, 't': now,
@@ -1072,7 +1122,7 @@ def procs():
                      'n': sum(g['n'] for g in tail), 'groups': len(tail)}}
 
 
-STATIC = {'/three.min.js': 'application/javascript', '/OrbitControls.js': 'application/javascript'}
+STATIC = {'/Line2.js': 'application/javascript', '/menu.js': 'application/javascript', '/three.min.js': 'application/javascript', '/OrbitControls.js': 'application/javascript'}
 
 
 class H(BaseHTTPRequestHandler):
@@ -1143,6 +1193,16 @@ class H(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0)) or 0) or b'{}')
         except ValueError:
             return self.send(400, {'error': 'Petici\u00f3n no v\u00e1lida.'})
+        if u.path == '/api/kill':
+            pids = body.get('pids') or ([body['pid']] if body.get('pid') is not None else [])
+            done, errs = 0, []
+            for q in pids[:40]:
+                e = kill_proc(q)
+                if e:
+                    errs.append(e)
+                else:
+                    done += 1
+            return self.send(200, {'ok': not errs, 'closed': done, 'errors': errs[:4]})
         if u.path == '/api/quit':
             threading.Timer(0.4, lambda: os._exit(0)).start()
             return self.send(200, {'ok': True})
