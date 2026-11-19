@@ -177,7 +177,7 @@ const freed={n:0,size:0};
 /* ---------- three (built once) ---------- */
 const host=$('city');
 const renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.setClearColor(0xe9ecee);
 host.appendChild(renderer.domElement);
 const scene=new THREE.Scene();
@@ -185,7 +185,7 @@ const cam=new THREE.OrthographicCamera(-1,1,1,-1,-2000,6000);
 const ctl=new THREE.OrbitControls(cam,renderer.domElement);
 ctl.enableDamping=true; ctl.dampingFactor=.12; ctl.maxPolarAngle=Math.PI*.46; ctl.minZoom=.3; ctl.maxZoom=30; ctl.screenSpacePanning=false;
 scene.add(new THREE.HemisphereLight(0xffffff,0xb9c0c6,.78));
-const sun=new THREE.DirectionalLight(0xfff6ea,.62); sun.castShadow=true; sun.shadow.mapSize.set(4096,4096); sun.shadow.bias=-.0006; scene.add(sun); scene.add(sun.target);
+const sun=new THREE.DirectionalLight(0xfff6ea,.62); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-.0006; scene.add(sun); scene.add(sun.target);
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshLambertMaterial({color:0xdfe3e6}));
 ground.rotation.x=-Math.PI/2; ground.position.y=-.26; ground.receiveShadow=true; scene.add(ground);
 const unit=new THREE.BoxGeometry(1,1,1); unit.translate(0,.5,0);
@@ -224,7 +224,13 @@ function flyTo(x,z,zoom){
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   anim=now=>{ let k=reduce?1:Math.min(1,(now-s)/550); k=k*k*(3-2*k); ctl.target.lerpVectors(t0,t1,k); cam.position.copy(ctl.target).add(off); cam.zoom=z0+(zoom-z0)*k; cam.updateProjectionMatrix(); if(k>=1) anim=null; };
 }
-(function tick(now){ requestAnimationFrame(tick); if(anim) anim(now); ctl.update(); renderer.render(scene,cam); })();
+/* 30 cuadros por segundo bastan, y con la pestaña oculta no se dibuja nada. */
+let _ult=0;
+(function tick(now){ requestAnimationFrame(tick);
+  if(document.hidden) return;
+  if(now-_ult<32) return; _ult=now;
+  if(anim) anim(now); ctl.update(); renderer.render(scene,cam);
+})();
 new ResizeObserver(resize).observe(host);
 
 function textPlane(lines,maxW,maxD,light){

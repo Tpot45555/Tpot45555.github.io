@@ -913,7 +913,7 @@ def say(q, path):
 # Administrador de tareas: quien gasta CPU y memoria ahora mismo.
 # Solo biblioteca estandar: en Windows se pregunta al propio sistema con ctypes,
 # en Linux se lee /proc. No se lanza ningun programa externo.
-PROC_PREV = {'t': 0.0, 'cpu': {}, 'warn': ''}
+PROC_PREV = {'t': 0.0, 'cpu': {}, 'cores': [], 'warn': ''}
 
 if WIN:
     import ctypes
@@ -933,6 +933,12 @@ if WIN:
                     ('ullTotalVirtual', ctypes.c_ulonglong), ('ullAvailVirtual', ctypes.c_ulonglong),
                     ('ullAvailExtendedVirtual', ctypes.c_ulonglong)]
 
+    class _SPPI(ctypes.Structure):                                  # un nucleo del procesador
+        _fields_ = [('Idle', ctypes.c_longlong), ('Kernel', ctypes.c_longlong),
+                    ('User', ctypes.c_longlong), ('Dpc', ctypes.c_longlong),
+                    ('Interrupt', ctypes.c_longlong), ('InterruptCount', ctypes.c_ulong)]
+
+    _NT = ctypes.WinDLL('ntdll')
     _K32 = ctypes.WinDLL('kernel32', use_last_error=True)
     _PSAPI = ctypes.WinDLL('psapi', use_last_error=True)
     _K32.OpenProcess.restype = wt.HANDLE
@@ -982,6 +988,23 @@ if WIN:
                 _K32.CloseHandle(h)
         return out
 
+    def _core_times():
+        """[(ocupado, total)] en segundos por nucleo."""
+        n = os.cpu_count() or 1
+        arr = (_SPPI * n)()
+        got = wt.DWORD()
+        try:
+            if _NT.NtQuerySystemInformation(8, ctypes.byref(arr), ctypes.sizeof(arr), ctypes.byref(got)):
+                return []
+        except OSError:
+            return []
+        out = []
+        for i in range(min(n, got.value // ctypes.sizeof(_SPPI))):
+            a = arr[i]
+            tot = (a.Kernel + a.User) / 1e7
+            out.append((tot - a.Idle / 1e7, tot))
+        return out
+
     def _mem_total():
         m = _MEM()
         m.dwLength = ctypes.sizeof(_MEM)
@@ -1016,6 +1039,20 @@ else:
                 out.append((int(pid), name, cpu, ram, path))
             except (OSError, ValueError, IndexError):
                 continue
+        return out
+
+    def _core_times():
+        out = []
+        try:
+            hz = os.sysconf('SC_CLK_TCK') or 100
+            with open('/proc/stat', 'rb') as f:
+                for ln in f:
+                    if ln.startswith(b'cpu') and ln[3:4].isdigit():
+                        v = [int(x) for x in ln.split()[1:9]]
+                        tot = sum(v) / hz
+                        out.append((tot - (v[3] + v[4]) / hz, tot))
+        except (OSError, ValueError, IndexError):
+            return []
         return out
 
     def _mem_total():
@@ -1086,6 +1123,16 @@ def procs():
     prev, dt = PROC_PREV['cpu'], now - PROC_PREV['t']
     cores = os.cpu_count() or 1
     ready = bool(prev) and 0.25 <= dt <= 60
+    try:
+        ct = _core_times()
+    except Exception:
+        ct = []
+    per, prevc = [], PROC_PREV['cores']
+    if ct and len(prevc) == len(ct) and ready:
+        for (b, t), (pb, pt) in zip(ct, prevc):
+            dtot = t - pt
+            per.append(round(max(0.0, min(100.0, (b - pb) / dtot * 100.0)), 1) if dtot > 0 else 0.0)
+    PROC_PREV['cores'] = ct
     groups = {}
     for pid, name, cpu, ram, path in cur:
         g = groups.get(name.lower())
@@ -1114,8 +1161,9 @@ def procs():
         del g['inst'][24:]
     tot, used = _mem_total()
     top, tail = lst[:120], lst[120:]
-    return {'ready': ready, 'cores': cores, 't': now,
-            'cpu': round(min(100.0, sum(g['cpu'] for g in lst)), 2),
+    total = sum(per) / len(per) if per else min(100.0, sum(g['cpu'] for g in lst))
+    return {'ready': ready, 'cores': cores, 't': now, 'per': per,
+            'cpu': round(min(100.0, total), 2),
             'ram': {'total': tot, 'used': used, 'procs': sum(g['ram'] for g in lst)},
             'count': len(cur), 'procs': top,
             'rest': {'cpu': round(sum(g['cpu'] for g in tail), 2), 'ram': sum(g['ram'] for g in tail),

@@ -62,6 +62,7 @@ h1{font:600 24px/1.05 var(--display);margin:2px 0 0}
 #city{position:absolute;inset:0}
 #city canvas{display:block}
 #hint{position:absolute;left:0;right:0;bottom:10px;text-align:center;font:11px var(--mono);color:var(--muted);pointer-events:none}
+.tag.chip{font-weight:600;letter-spacing:.05em;border-color:var(--ink);background:rgba(255,255,255,.92);transform:translate(-50%,-120%)}
 .tag{position:absolute;transform:translate(-50%,-100%);font:500 11px var(--mono);color:var(--ink);background:rgba(255,255,255,.82);border:1px solid var(--line);border-radius:3px;padding:1px 5px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .3s}
 #card{position:absolute;right:14px;top:56px;width:272px;background:#fff;border:1px solid var(--line);border-radius:5px;padding:14px 16px;display:none;z-index:4;box-shadow:0 10px 28px rgba(28,38,48,.13)}
 #card h2{font:600 17px var(--display);margin:0 0 2px}
@@ -106,7 +107,7 @@ h1{font:600 24px/1.05 var(--display);margin:2px 0 0}
     </div>
   </div>
   <div id="list"></div>
-  <div id="legend">Cada edificio es un programa: la <b>altura</b> es la memoria que ocupa. Las líneas que salen de la central llevan la <b>energía del procesador</b>: cuantos más pulsos corren por una, más CPU está gastando ese programa.</div>
+  <div id="legend">En el centro está el <b>procesador</b>: cada casilla del chip es un núcleo y se enciende con su carga. Cada edificio es un programa y su <b>altura</b> es la memoria que ocupa. Por los conductos corre la <b>energía del procesador</b>: cuanta más gasta un programa, más brilla su línea y más paquetes le llegan.</div>
 </aside>
 
 <div id="main">
@@ -124,7 +125,7 @@ h1{font:600 24px/1.05 var(--display);margin:2px 0 0}
     <div id="cAsk"></div>
   </div>
   <div id="warn"></div>
-  <div id="hint">clic: ficha · arrastrar: girar · rueda: zoom · la central del centro reparte el procesador</div>
+  <div id="hint">clic: ficha · arrastrar: girar · rueda: zoom · el chip del centro reparte la CPU entre los programas</div>
 </div>
 
 <script src="/three.min.js"></script>
@@ -150,7 +151,7 @@ const freeSlots=[];
 /* ---------- tres dimensiones: la misma retícula recta de la ciudad ---------- */
 const host=$('city');
 const renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.setClearColor(0xe9ecee);
 host.appendChild(renderer.domElement);
 const scene=new THREE.Scene();
@@ -158,7 +159,7 @@ const cam=new THREE.OrthographicCamera(-1,1,1,-1,-2000,6000);
 const ctl=new THREE.OrbitControls(cam,renderer.domElement);
 ctl.enableDamping=true; ctl.dampingFactor=.12; ctl.maxPolarAngle=Math.PI*.46; ctl.minZoom=.35; ctl.maxZoom=14; ctl.screenSpacePanning=false;
 scene.add(new THREE.HemisphereLight(0xffffff,0xb9c0c6,.78));
-const sun=new THREE.DirectionalLight(0xfff6ea,.62); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-.0006;
+const sun=new THREE.DirectionalLight(0xfff6ea,.62); sun.castShadow=true; sun.shadow.mapSize.set(1024,1024); sun.shadow.autoUpdate=false; sun.shadow.needsUpdate=true; sun.shadow.bias=-.0006;
 sun.position.set(60,95,42); sun.target.position.set(0,0,0); scene.add(sun); scene.add(sun.target);
 sun.shadow.camera.left=-70; sun.shadow.camera.right=70; sun.shadow.camera.top=70; sun.shadow.camera.bottom=-70; sun.shadow.camera.updateProjectionMatrix();
 
@@ -177,24 +178,49 @@ ground.rotation.x=-Math.PI/2; ground.position.y=-.26; ground.receiveShadow=true;
             new THREE.LineBasicMaterial({color:0xc3c9cd,transparent:true,opacity:.55})));
 })();
 
-/* la central: un recinto cuadrado que reparte el procesador */
-const PH=6.3;                                 // medio lado del recinto
+/* El procesador: zocalo, encapsulado, muesca de orientacion y la rejilla de
+   nucleos, que se encienden cada uno con su propia carga. */
+const PH=6.3;
 const inkMat=new THREE.MeshLambertMaterial({color:0x1c2630});
-const colMat=new THREE.MeshLambertMaterial({color:0xb4441f});
-const plinth=new THREE.Mesh(new THREE.BoxGeometry(PH*2,1.3,PH*2),inkMat);
-plinth.position.y=.65; plinth.castShadow=true; plinth.receiveShadow=true; scene.add(plinth);
-const towerG=new THREE.BoxGeometry(4.3,1,4.3); towerG.translate(0,.5,0);
-const column=new THREE.Mesh(towerG,colMat); column.position.y=1.3; column.scale.y=4; column.castShadow=true; scene.add(column);
-const colEdge=new THREE.LineSegments(new THREE.EdgesGeometry(towerG),new THREE.LineBasicMaterial({color:0x1c2630,transparent:true,opacity:.35}));
-colEdge.position.y=1.3; colEdge.scale.y=4; scene.add(colEdge);
-const cap=new THREE.Mesh(new THREE.BoxGeometry(5.2,.5,5.2),inkMat); cap.castShadow=true; scene.add(cap);
-const pylonG=new THREE.BoxGeometry(1.1,3.2,1.1); pylonG.translate(0,1.6,0);
-for(const sx of [-1,1]) for(const sz of [-1,1]){
-  const p=new THREE.Mesh(pylonG,inkMat); p.position.set(sx*(PH-1.1),1.3,sz*(PH-1.1)); p.castShadow=true; scene.add(p);
-}
-const padG=new THREE.PlaneGeometry(PH*2+2.6,PH*2+2.6);
-const pad=new THREE.Mesh(padG,new THREE.MeshBasicMaterial({color:0xb4441f,transparent:true,opacity:.14}));
+const socket=new THREE.Mesh(new THREE.BoxGeometry(PH*2,1.2,PH*2),inkMat);
+socket.position.y=.6; socket.castShadow=true; socket.receiveShadow=true; scene.add(socket);
+(function patillas(){                                   // las patas del encapsulado, en hileras
+  const n=13, filas=2, im=new THREE.InstancedMesh(new THREE.BoxGeometry(.3,.55,.3),
+      new THREE.MeshLambertMaterial({color:0xc2ab7d}),4*filas*n), d=new THREE.Object3D();
+  let k=0;
+  for(const eje of [0,1]) for(const sg of [-1,1]) for(let f=0;f<filas;f++) for(let i=0;i<n;i++){
+    const t=(i/(n-1)-.5)*(PH*1.62), o=sg*(PH-.75-f*.95);
+    d.position.set(eje?t:o,1.35,eje?o:t); d.updateMatrix(); im.setMatrixAt(k++,d.matrix);
+  }
+  im.castShadow=true; scene.add(im);
+})();
+const SUB=9.4, DIE=7.8;
+const subs=new THREE.Mesh(new THREE.BoxGeometry(SUB,.5,SUB),new THREE.MeshLambertMaterial({color:0x2b3238}));
+subs.position.y=1.45; subs.castShadow=true; subs.receiveShadow=true; scene.add(subs);
+const muesca=new THREE.Mesh(new THREE.BoxGeometry(.9,.06,.9),new THREE.MeshLambertMaterial({color:0xd6d9db}));
+muesca.position.set(-SUB/2+.62,1.72,-SUB/2+.62); scene.add(muesca);
+const die=new THREE.Mesh(new THREE.BoxGeometry(DIE,.22,DIE),new THREE.MeshLambertMaterial({color:0x12171a}));
+die.position.y=1.81; die.receiveShadow=true; scene.add(die);
+const pad=new THREE.Mesh(new THREE.PlaneGeometry(PH*2+2.6,PH*2+2.6),
+    new THREE.MeshBasicMaterial({color:0xb4441f,transparent:true,opacity:.12}));
 pad.rotation.x=-Math.PI/2; pad.position.y=.02; scene.add(pad);
+
+/* un azulejo por nucleo: su altura y su color son la carga de ese nucleo */
+const K_IDLE=new THREE.Color(0x8e979e), K_BUSY=new THREE.Color(0xd2561f);
+const nucleos=[]; let nCores=0;
+function construirNucleos(n){
+  for(const t of nucleos){ scene.remove(t); t.geometry.dispose(); t.material.dispose(); }
+  nucleos.length=0; nCores=n;
+  const cols=Math.ceil(Math.sqrt(n)), rows=Math.ceil(n/cols), gap=.4;
+  const w=(DIE-gap*(cols+1))/cols, h=(DIE-gap*(rows+1))/rows;
+  for(let i=0;i<n;i++){
+    const c=i%cols, r=(i/cols)|0;
+    const g=new THREE.BoxGeometry(w,.62,h); g.translate(0,.31,0);
+    const t=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:K_IDLE.clone()}));
+    t.position.set(-DIE/2+gap+w/2+c*(w+gap),1.92,-DIE/2+gap+h/2+r*(h+gap));
+    t.castShadow=true; t.carga=0; t.obj=0; scene.add(t); nucleos.push(t);
+  }
+}
 
 /* edificios: cajas sobre su losa, igual que las carpetas de la ciudad */
 const boxG=new THREE.BoxGeometry(2.9,1,2.9); boxG.translate(0,.5,0);
@@ -309,9 +335,13 @@ function apply(d){
     if(it){ it.data=r; it.ram=r.ram; it.cpuT=r.cpu; it.hT=hOf(r.ram); }
   }
   for(const it of Array.from(items.values())) if(!seen.has(it.name)) dropItem(it);
-  column.scale.y=clamp(1.4+d.cpu*.085,1.4,10); colEdge.scale.y=column.scale.y; cap.position.y=1.3+column.scale.y;
+  if(d.cores&&d.cores!==nCores) construirNucleos(Math.min(64,d.cores));
+  const per=d.per&&d.per.length===nucleos.length?d.per:null;
+  nucleos.forEach((t,i)=>{ t.obj=clamp((per?per[i]:d.cpu)/100,0,1); });
+  sun.shadow.needsUpdate=true;
   renderSide(d);
   if(sel && !ASK) showCard(sel);
+  sucio=true;
 }
 
 function renderSide(d){
@@ -383,48 +413,73 @@ function select(name){
 }
 
 /* ---------- bucle ---------- */
-let t0=performance.now();
-function frame(){
-  requestAnimationFrame(frame);
-  const now=performance.now(), dt=Math.min(.05,(now-t0)/1000); t0=now;
-  let n=0;
+/* El dibujo cuesta bateria, asi que solo se pinta cuando algo se mueve:
+   30 cuadros por segundo como tope, nada mientras la pestaña esté oculta y
+   nada si la maqueta esta quieta. */
+let ultimo=0, sucio=true, pulsosPrev=0;
+ctl.addEventListener('change',()=>{sucio=true;});
+const cpuTag=(function(){ const d=document.createElement('div'); d.className='tag chip'; d.style.opacity=1; $('main').appendChild(d); return d; })();
+
+function paso(dt,now){
+  let algo=false, n=0;
   for(const it of items.values()){
-    it.cpu+=(it.cpuT-it.cpu)*Math.min(1,dt*4);
-    it.h+=(it.hT-it.h)*Math.min(1,dt*4);
-    it.mesh.scale.y=it.h; it.edges.scale.y=it.h;
-    const k=clamp(it.cpu/14,0,1);
+    if(Math.abs(it.cpuT-it.cpu)>.01){ it.cpu+=(it.cpuT-it.cpu)*Math.min(1,dt*4); algo=true; }
+    if(Math.abs(it.hT-it.h)>.004){ it.h+=(it.hT-it.h)*Math.min(1,dt*4); algo=true;
+      it.mesh.scale.y=it.h; it.edges.scale.y=it.h; }
+    const k=clamp(it.cpu/14,0,1), q=clamp(it.cpu/8,0,1);
     it.mesh.material.color.copy(C_IDLE).lerp(C_BUSY,k);
-    const q=clamp(it.cpu/8,0,1);
     it.base.material.color.copy(L_IDLE).lerp(L_BUSY,q*.75);
     it.base.material.linewidth=2.9+2.1*q;
     it.flow.material.opacity=.14+.86*clamp(it.cpu/5,0,1);
     it.flow.material.linewidth=4.4+3.4*q;
-    it.flow.material.dashOffset-=dt*(.9+clamp(it.cpu,0,45)*.28);        // la corriente avanza hacia el edificio
     const np=it.cpu<.35?0:clamp(1+Math.round(it.cpu/6),1,5);     // los paquetes que llegan a la obra
-    const sp=.18+clamp(it.cpu,0,40)*.022;
-    for(let i=0;i<np && n<PMAX;i++,n++){
-      const u=((now/1000*sp)+it.phase+i/np)%1;
-      onPath(it.path,u,dummy.position);
-      dummy.scale.setScalar(.55+clamp(it.cpu/16,0,1)*.75);
-      dummy.updateMatrix(); pulseMesh.setMatrixAt(n,dummy.matrix);
+    if(np){
+      algo=true;
+      it.flow.material.dashOffset-=dt*(.9+clamp(it.cpu,0,45)*.28);   // la corriente avanza hacia el edificio
+      const sp=.18+clamp(it.cpu,0,40)*.022, esc=.55+clamp(it.cpu/16,0,1)*.75;
+      for(let i=0;i<np && n<PMAX;i++,n++){
+        onPath(it.path,((now/1000*sp)+it.phase+i/np)%1,dummy.position);
+        dummy.scale.setScalar(esc); dummy.updateMatrix(); pulseMesh.setMatrixAt(n,dummy.matrix);
+      }
     }
   }
-  for(let i=n;i<PMAX;i++){ dummy.scale.setScalar(0); dummy.updateMatrix(); pulseMesh.setMatrixAt(i,dummy.matrix); }
-  pulseMesh.count=PMAX; pulseMesh.instanceMatrix.needsUpdate=true;
+  if(n<pulsosPrev){                                     // solo se borran los que sobran
+    dummy.scale.setScalar(0); dummy.updateMatrix();
+    for(let i=n;i<pulsosPrev;i++) pulseMesh.setMatrixAt(i,dummy.matrix);
+  }
+  if(n||pulsosPrev){ pulseMesh.count=Math.max(n,pulsosPrev); pulseMesh.instanceMatrix.needsUpdate=true; }
+  pulsosPrev=n;
   if(sel){ const it=items.get(sel); if(it) selBox.scale.set(1,it.h,1); }
   const cp=DATA?DATA.cpu:0;
-  pad.material.opacity=.10+.26*clamp(cp/40,0,1)*(.75+.25*Math.sin(now/340));
-  colMat.color.setHSL(.045,.66,clamp(.40+cp/420,.40,.52));
-  ctl.update();
-  renderer.render(scene,cam);
-  drawTags();
+  pad.material.opacity=.09+.24*clamp(cp/40,0,1);
+  for(const t of nucleos){                              // los nucleos suben y se encienden
+    if(Math.abs(t.carga-t.obj)>.002){ t.carga+=(t.obj-t.carga)*Math.min(1,dt*5); algo=true;
+      t.scale.y=1+t.carga*1.25; t.material.color.copy(K_IDLE).lerp(K_BUSY,Math.pow(t.carga,.7)); }
+  }
+  return algo;
 }
 
-function drawTags(){
+function frame(now){
+  requestAnimationFrame(frame);
+  if(document.hidden) return;
+  if(now-ultimo<32) return;                             // 30 cuadros por segundo como mucho
+  const dt=Math.min(.08,(now-ultimo)/1000); ultimo=now;
+  const algo=paso(dt,now), movio=ctl.update();
+  if(!algo&&!movio&&!sucio) return;
+  sucio=false;
+  renderer.render(scene,cam);
+  const cp=DATA?DATA.cpu:0, v=new THREE.Vector3(0,5.6,0).project(cam);
+  const cx=(v.x*.5+.5)*host.clientWidth, cy=(-v.y*.5+.5)*host.clientHeight;
+  cpuTag.style.left=cx+'px'; cpuTag.style.top=cy+'px';
+  cpuTag.textContent='Procesador · '+nCores+(nCores===1?' núcleo':' núcleos')+' · '+(ready?pc(cp):'midiendo…');
+  drawTags([[cx,cy]]);
+}
+
+function drawTags(ocupado){
   const top=Array.from(items.values()).filter(i=>i.cpu>.4).sort((a,b)=>b.cpu-a.cpu).slice(0,6);
   while(tags.length<6){ const d=document.createElement('div'); d.className='tag'; $('main').appendChild(d); tags.push(d); }
   const w=host.clientWidth, h=host.clientHeight;
-  const puestos=[];
+  const puestos=ocupado||[];
   tags.forEach((el,i)=>{
     const it=top[i];
     if(!it){ el.style.opacity=0; return; }
@@ -446,7 +501,7 @@ function fit(){
 function resize(){ const w=host.clientWidth,h=host.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false);
   for(const m of lineMats) m.resolution.set(w,h);
   fit(); }
-function home(){ cam.position.set(58,52,58); ctl.target.set(0,2,0); cam.zoom=1; cam.updateProjectionMatrix(); ctl.update(); }
+function home(){ cam.position.set(58,62,58); ctl.target.set(0,2,0); cam.zoom=1; cam.updateProjectionMatrix(); ctl.update(); }
 addEventListener('resize',resize);
 
 /* ---------- interacción ---------- */
@@ -471,9 +526,10 @@ addEventListener('keydown',e=>{ if(e.key==='Escape') select(null); });
 
 /* ---------- lectura cada segundo y medio ---------- */
 let timer=null;
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ sucio=true; tick(); } });
 async function tick(){
   clearTimeout(timer);
-  if(PAUSED) return;
+  if(PAUSED||document.hidden) return;                   // con la pestaña oculta no se gasta nada
   try{
     const d=await api('/api/procs');
     $('warn').style.display='none';
@@ -483,7 +539,7 @@ async function tick(){
     $('warn').textContent='No se pudo leer los procesos: '+err.message+'. ¿Sigue abierto el Atlas?';
     $('warn').style.display='block';
   }
-  timer=setTimeout(tick,1500);
+  timer=setTimeout(tick, document.hasFocus()?1500:3000);
 }
 AtlasMenu.mount({
   mount:$('menuSlot'), current:'procesos',
@@ -492,7 +548,7 @@ AtlasMenu.mount({
     {title:'Actualización', items:()=>[{label:PAUSED?'Seguir':'Pausar', on:PAUSED, run:()=>$('bPause').click()}]}
   ]
 });
-resize(); home(); frame(); tick();
+resize(); home(); requestAnimationFrame(frame); tick();
 </script>
 </body>
 </html>
