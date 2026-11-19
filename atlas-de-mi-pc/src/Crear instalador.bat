@@ -18,7 +18,7 @@ echo [2/3] Buscando Inno Setup...
 set "ISCC="
 call :buscar
 if defined ISCC goto compilar
-echo    No esta. Lo instalo con winget (puede tardar un par de minutos)...
+echo    No esta instalado. Lo instalo con winget (tarda un par de minutos)...
 winget install -e --id JRSoftware.InnoSetup --accept-source-agreements --accept-package-agreements
 call :buscar
 if not defined ISCC goto sininno
@@ -35,30 +35,33 @@ echo   Listo: "Atlas de mi PC - Instalador.exe"
 echo   esta en esta misma carpeta.
 echo ==========================================
 echo.
-echo Ese es el archivo que se reparte. Al ejecutarlo instala la
-echo aplicacion para tu usuario, crea el acceso directo y la deja
-echo en "Aplicaciones instaladas" de Windows para desinstalarla.
+echo Ese es el unico archivo que les pasas a tus amigos. Al abrirlo
+echo instala el programa, crea el acceso directo y lo deja en
+echo "Aplicaciones instaladas" de Windows para poder quitarlo.
+echo.
 pause
 exit /b 0
 
 :buscar
-for %%p in (
-  "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
-  "%ProgramFiles%\Inno Setup 6\ISCC.exe"
-  "%LocalAppData%\Programs\Inno Setup 6\ISCC.exe"
-) do if exist %%p set "ISCC=%%~p"
+set "PF86=%ProgramFiles(x86)%"
+set "PF64=%ProgramFiles%"
+if exist "%PF86%\Inno Setup 6\ISCC.exe" set "ISCC=%PF86%\Inno Setup 6\ISCC.exe"
+if exist "%PF64%\Inno Setup 6\ISCC.exe" set "ISCC=%PF64%\Inno Setup 6\ISCC.exe"
+if exist "%LocalAppData%\Programs\Inno Setup 6\ISCC.exe" set "ISCC=%LocalAppData%\Programs\Inno Setup 6\ISCC.exe"
 exit /b 0
 
 :sininno
 echo.
 echo No encontre Inno Setup y winget no pudo instalarlo.
-echo Descargalo de https://jrsoftware.org/isdl.php, instalalo
-echo y vuelve a ejecutar este archivo.
+echo Descargalo de https://jrsoftware.org/isdl.php, instalalo con las
+echo opciones que trae por defecto y vuelve a ejecutar este archivo.
+echo.
 pause
 exit /b 1
 
 :fallo
 echo.
 echo Algo fallo. Copia el texto de esta ventana y pasaselo a Claude.
+echo.
 pause
 exit /b 1

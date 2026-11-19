@@ -1,0 +1,59 @@
+﻿Atlas de mi PC
+==============
+
+Un mapa de tu disco duro y de tu procesador, a escala, como una maqueta.
+
+Enrique Christensen Betancourt - github.com/Tpot45555
+
+
+QUE HACE
+--------
+La ciudad: cada vecindario es una carpeta principal y cada edificio una
+subcarpeta. Cuanto mas alto, mas ocupa. Sirve para ver de un vistazo que
+se esta comiendo el disco, que lleva anos sin tocarse y que es basura que
+se regenera sola (caches, temporales, dependencias).
+
+El administrador de tareas: en el centro esta tu procesador, con una
+casilla por nucleo que se enciende segun su carga. Alrededor, un edificio
+por programa, y por los conductos corre la energia del procesador: cuanta
+mas CPU gasta un programa, mas brilla su linea.
+
+Se pasa de uno a otro con el menu de la izquierda.
+
+
+COMO SE INSTALA
+---------------
+Abre "Atlas de mi PC - Instalador.exe" y sigue el asistente.
+
+La primera vez Windows muestra una pantalla azul que dice que no reconoce
+el programa. Es normal: el instalador no esta firmado con un certificado
+de pago. Pulsa "Mas informacion" y luego "Ejecutar de todas formas".
+
+Se instala para tu usuario, sin pedir contrasena de administrador. Despues
+aparece en el menu de inicio y en "Aplicaciones instaladas" de Windows,
+desde donde se desinstala como cualquier otro programa.
+
+
+LA PRIMERA VEZ
+--------------
+Al abrirlo recorre el disco entero para contar los archivos. Tarda entre
+uno y varios minutos segun lo lleno que este. Mientras tanto veras la
+portada con el avance. Las siguientes aperturas no tardan nada.
+
+
+TUS DATOS SON TUYOS
+-------------------
+Todo ocurre dentro de tu equipo. El programa no sube nada a internet: lo
+que hace es levantar un pequeno servidor local, al que solo se puede
+entrar desde tu propia maquina, y dibujar ahi la maqueta. No lleva
+publicidad ni rastreadores.
+
+
+SI ALGO NO VA
+-------------
+- La ventana se abre con Edge o con Chrome. Si no tienes ninguno de los
+  dos, se abre en el navegador que uses por defecto y funciona igual.
+- Si la maqueta va a tirones, en el menu de la izquierda, abajo, puedes
+  bajar la fluidez a 30 cuadros por segundo.
+- Para cerrarlo, cierra la ventana. El programa se apaga solo al poco
+  rato de quedarse sin ventana.

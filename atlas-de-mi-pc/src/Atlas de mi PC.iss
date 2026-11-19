@@ -48,6 +48,7 @@ Name: "escritorio"; Description: "Crear un acceso directo en el escritorio"; Gro
 
 [Files]
 Source: "dist-app\{#Nombre}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "LEEME.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
 
 [Icons]
 Name: "{group}\{#Nombre}"; Filename: "{app}\{#Ejecutable}"
