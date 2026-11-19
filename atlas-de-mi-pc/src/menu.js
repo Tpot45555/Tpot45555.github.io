@@ -4,22 +4,20 @@
    la logica de cada vista sigue igual. Uso: AtlasMenu.mount({current, groups}).
    Ademas guarda el tope de cuadros por segundo (30 o 60) y avisa al cambiarlo. */
 (function () {
-  const RAIL = 34, ANCHO = 290;
+  const RAIL = 46, ANCHO = 290;
   const CSS = `
   body{padding-left:${RAIL}px;box-sizing:border-box}
   .amRail{position:fixed;left:0;top:0;bottom:0;width:${RAIL}px;z-index:70;background:var(--panel,#fff);
-    border-right:1px solid var(--line,#cfd5d9);display:flex;flex-direction:column;align-items:center;gap:12px;padding-top:12px}
-  .amTab{appearance:none;border:0;background:none;padding:10px 0;cursor:pointer;color:var(--ink,#1c2630);
-    display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
-  .amTab:hover{background:#eceff0}
-  .amBars{display:block;width:16px;height:12px;position:relative}
-  .amBars i,.amBars:before,.amBars:after{content:'';position:absolute;left:0;right:0;height:2px;background:currentColor}
-  .amBars:before{top:0} .amBars i{top:5px} .amBars:after{bottom:0}
-  .amVert{writing-mode:vertical-rl;text-orientation:mixed;font:500 10px/1 var(--mono,ui-monospace,Consolas,monospace);
-    letter-spacing:.22em;text-transform:uppercase;color:var(--muted,#65717c)}
-  .amRail.open .amVert{color:var(--accent,#b4441f)}
-  .amRail.open .amTab{background:var(--ink,#1c2630);color:#fff}
-  .amRail.open .amVert{color:#b9c2c9}
+    border-right:1px solid var(--line,#cfd5d9);display:flex;flex-direction:column;align-items:center}
+  .amTab{appearance:none;border:0;background:var(--ink,#1c2630);padding:0 0 13px;cursor:pointer;color:#fff;
+    display:flex;flex-direction:column;align-items:center;gap:11px;width:100%}
+  .amTab:hover{background:#2b3a48}
+  .amRail.open .amTab{background:var(--accent,#b4441f)}
+  .amBars{display:block;width:24px;height:17px;position:relative;margin-top:15px}
+  .amBars i,.amBars:before,.amBars:after{content:'';position:absolute;left:0;right:0;height:3px;background:currentColor}
+  .amBars:before{top:0} .amBars i{top:7px} .amBars:after{bottom:0}
+  .amVert{writing-mode:vertical-rl;text-orientation:mixed;font:500 11.5px/1 var(--mono,ui-monospace,Consolas,monospace);
+    letter-spacing:.26em;text-transform:uppercase;color:#fff}
   .amScrim{position:fixed;inset:0 0 0 ${RAIL}px;z-index:68;background:rgba(28,38,48,.14);display:none}
   .amRail.open~.amScrim{display:block}
   .amPanel{position:fixed;left:${RAIL}px;top:0;bottom:0;width:${ANCHO}px;z-index:69;background:#fff;
