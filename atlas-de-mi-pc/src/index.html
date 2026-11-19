@@ -121,10 +121,11 @@ dt{color:var(--muted)} dd{margin:0;text-align:right;font-family:var(--mono);font
 #splash .mk{width:84px;height:84px;image-rendering:auto}
 #splash h1{margin:19px 0 0;font:600 31px/1.1 var(--display);letter-spacing:.012em;color:var(--ink)}
 #splash .sub{margin-top:7px;font:400 13px var(--body);color:var(--muted)}
-#splash .rule{width:62px;height:2px;background:var(--accent);margin:21px 0 19px}
-#splash .cr{font:500 13px var(--body);color:var(--ink)}
-#splash .cr span{display:block;margin-top:5px;font:400 11.5px var(--mono);color:var(--muted);letter-spacing:.04em}
-#splash .st{position:absolute;bottom:26px;font:400 11px var(--mono);color:var(--muted);letter-spacing:.06em}
+#splash .rule{width:62px;height:2px;background:var(--accent);margin:21px 0 0}
+#splash .cr{position:absolute;left:30px;bottom:26px;text-align:left;font:500 13px var(--body);color:var(--ink);
+  border-left:2px solid var(--accent);padding-left:12px}
+#splash .cr span{display:block;margin-top:4px;font:400 11.5px var(--mono);color:var(--muted);letter-spacing:.04em}
+#splash .st{position:absolute;right:30px;bottom:28px;font:400 11px var(--mono);color:var(--muted);letter-spacing:.06em}
 #toast{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);z-index:8;background:var(--ink);color:#fff;padding:9px 14px;border-radius:4px;font-size:13px;display:none;max-width:80%}
 @media (max-width:820px){
   body{grid-template-columns:1fr;grid-template-rows:auto 1fr;overflow:auto}
