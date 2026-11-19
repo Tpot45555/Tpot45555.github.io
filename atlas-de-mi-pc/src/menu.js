@@ -44,6 +44,9 @@
   .amIt .amHint{margin-left:auto;white-space:nowrap;padding-left:10px;font:400 11px var(--mono,ui-monospace,Consolas,monospace);color:var(--muted,#65717c)}
   .amPie{margin-top:auto;padding:11px 16px;border-top:1px solid var(--line,#cfd5d9);
     font:400 11px/1.5 var(--mono,ui-monospace,Consolas,monospace);color:var(--muted,#65717c)}
+  .amCr{padding:11px 16px 14px;border-top:1px solid var(--line,#cfd5d9);font:400 11px/1.6 var(--mono,ui-monospace,Consolas,monospace);
+    color:var(--muted,#65717c)}
+  .amCr b{display:block;font:500 12px var(--body,inherit);color:var(--ink,#1c2630);margin-bottom:2px}
   `;
   const SECCIONES = [
     { id: 'ciudad', label: 'La ciudad', href: '/', hint: 'disco' },
@@ -135,9 +138,12 @@
         b.addEventListener('click', () => { setFps(v); fill(); });
         panel.appendChild(b);
       }
+      const cr = el('div', 'amCr');
+      cr.append(el('b', null, 'Enrique Christensen Betancourt'), el('span', null, 'github.com/Tpot45555 · 2026'));
       panel.appendChild(el('div', 'amPie', fps === 60
         ? 'A 60 la vista va más suave y gasta más. Solo dibuja cuando algo se mueve.'
         : 'A 30 apenas se nota y gasta la mitad. Solo dibuja cuando algo se mueve.'));
+      panel.appendChild(cr);
     }
     function open() { fill(); rail.classList.add('open'); tab.setAttribute('aria-expanded', 'true'); }
     function close() { rail.classList.remove('open'); tab.setAttribute('aria-expanded', 'false'); }

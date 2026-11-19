@@ -1281,16 +1281,40 @@ class H(BaseHTTPRequestHandler):
 
 
 def open_window(url):
-    """Abre la ciudad en una ventana propia (Edge en modo app); si no hay Edge, en el navegador."""
+    """Abre el Atlas en ventana propia, con su perfil y su icono, como una aplicacion.
+
+    Usa Edge o Chrome en modo aplicacion (sin barra de direcciones ni pestanas) y con
+    un perfil aparte, para que tenga su propio sitio en la barra de tareas y no se
+    mezcle con la navegacion del usuario. Si no hay ninguno de los dos, abre el
+    navegador que haya.
+    """
     if WIN:
-        for base in (os.environ.get('ProgramFiles(x86)'), os.environ.get('ProgramFiles'), os.environ.get('LocalAppData')):
-            exe = os.path.join(base or '', 'Microsoft', 'Edge', 'Application', 'msedge.exe')
-            if base and os.path.isfile(exe):
-                try:
-                    subprocess.Popen([exe, '--app=' + url, '--window-size=1500,920'])
-                    return
-                except OSError:
-                    pass
+        pf86, pf, la = (os.environ.get('ProgramFiles(x86)'), os.environ.get('ProgramFiles'),
+                        os.environ.get('LocalAppData'))
+        cands = []
+        for base in (pf86, pf, la):
+            if base:
+                cands.append(os.path.join(base, 'Microsoft', 'Edge', 'Application', 'msedge.exe'))
+        for base in (pf86, pf, la):
+            if base:
+                cands.append(os.path.join(base, 'Google', 'Chrome', 'Application', 'chrome.exe'))
+        perfil = os.path.join(la or os.path.expanduser('~'), 'AtlasDeMiPC', 'ventana')
+        try:
+            os.makedirs(perfil, exist_ok=True)
+        except OSError:
+            perfil = None
+        for exe in cands:
+            if not os.path.isfile(exe):
+                continue
+            args = [exe, '--app=' + url, '--window-size=1500,920', '--no-first-run',
+                    '--no-default-browser-check', '--disable-sync', '--no-service-autorun']
+            if perfil:
+                args.append('--user-data-dir=' + perfil)
+            try:
+                subprocess.Popen(args)
+                return
+            except OSError:
+                pass
     webbrowser.open(url)
 
 

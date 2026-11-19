@@ -23,6 +23,7 @@ exe = EXE(
     a.datas,
     [],
     name='Atlas de mi PC',
+    icon='atlas.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

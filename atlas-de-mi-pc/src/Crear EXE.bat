@@ -5,7 +5,7 @@ echo Instalando PyInstaller...
 py -3 -m pip install --upgrade pyinstaller
 if errorlevel 1 goto fallo
 echo Compilando...
-py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name "Atlas de mi PC" --add-data "index.html;." --add-data "procesos.html;." --add-data "menu.js;." --add-data "Line2.js;." --add-data "three.min.js;." --add-data "OrbitControls.js;." ciudad.py
+py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --icon "atlas.ico" --name "Atlas de mi PC" --add-data "index.html;." --add-data "procesos.html;." --add-data "menu.js;." --add-data "Line2.js;." --add-data "three.min.js;." --add-data "OrbitControls.js;." ciudad.py
 if errorlevel 1 goto fallo
 copy /y "dist\Atlas de mi PC.exe" "%~dp0" >nul
 echo.
