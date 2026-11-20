@@ -356,6 +356,7 @@
   .pj-inner .btn-line.alt{border-bottom-color:var(--line-strong);color:var(--slate)}
   .pj-note{font:400 .52rem 'JetBrains Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--slate-deep)}
 </style>
+<script>try{if(localStorage.getItem("lang")==="en")document.documentElement.style.visibility="hidden"}catch(e){}</script>
 </head>
 <body>
 
@@ -371,7 +372,7 @@
       <span class="eyebrow">Proyectos</span>
       <button class="drawer-close" id="drawer-close" aria-label="Cerrar">✕</button>
     </div>
-    <h2>Proyectos <span class="serif-i">seleccionados.</span></h2>
+    <h2 data-i18n="titulo-proyectos">Proyectos <span class="serif-i">seleccionados.</span></h2>
     <div class="chips" id="chips"></div>
   </div>
   <div class="drawer-list" id="drawer-list"></div>
@@ -975,5 +976,6 @@ addEventListener('scroll',()=>{nav.classList.toggle('scrolled',scrollY>40)},{pas
   shade.addEventListener('click',close); addEventListener('keydown',e=>{if(e.key==='Escape')close();});
 })();
 </script>
+<script src="/i18n.js"></script>
 </body>
 </html>
