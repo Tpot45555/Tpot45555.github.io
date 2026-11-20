@@ -151,15 +151,17 @@
     'Cambia la velocidad arriba, funda una sociedad nueva o suelta un poder desde la barra inferior.':
       'Change the speed at the top, found a new society or drop a power from the bottom bar.',
 
-    /* --- Atlas de mi PC (el nombre del programa no se traduce) --- */
+    /* --- Atlas de mi PC --- */
+    'Atlas de mi PC': 'Atlas of my PC',
+    'Atlas de mi PC — Enrique Christensen': 'Atlas of my PC — Enrique Christensen',
     'Atlas de mi PC: tu disco duro convertido en una ciudad 3D para ver qué ocupa espacio y limpiarlo.':
-      'Atlas de mi PC: your hard drive turned into a 3D city, to see what is eating your space and clear it out.',
+      'Atlas of my PC: your hard drive turned into a 3D city, to see what is eating your space and clear it out.',
     'Herramienta · Explorador 3D': 'Tool · 3D explorer',
-    'Atlas de': 'Atlas de',
-    'mi PC.': 'mi PC.',
+    'Atlas de': 'Atlas of',
+    'mi PC.': 'my PC.',
     'Tu disco duro convertido en una ciudad en 3D. Cada carpeta es una manzana, cada edificio un bloque de archivos, y su altura es lo que pesa. Para ver de un vistazo qué ocupa espacio y decidir qué se va.':
       'Your hard drive turned into a 3D city. Each folder is a block, each building a chunk of files, and its height is what it weighs. To see at a glance what is taking up space and decide what goes.',
-    'Vista de la ciudad 3D del Atlas de mi PC': 'A view of the 3D city in Atlas de mi PC',
+    'Vista de la ciudad 3D del Atlas de mi PC': 'A view of the 3D city in Atlas of my PC',
     'La ciudad de un PC real: cada manzana es una carpeta':
       'The city of a real PC: every block is a folder',
     'es una aplicación de escritorio para Windows que censa el disco y lo dibuja como una maqueta urbana navegable. En vez de una lista de carpetas con números, ves un mapa: lo grande se nota porque es alto.':
@@ -220,7 +222,7 @@
     'Multiagente': 'Multi-agent',
     'Voz': 'Voice',
     'Simulación': 'Simulation',
-    'Vista de Atlas de mi PC': 'A view of Atlas de mi PC',
+    'Vista de Atlas de mi PC': 'A view of Atlas of my PC',
     'Vista de Sistema de Vigilancia UAO': 'A view of the UAO Research Surveillance System',
     'Vista de Jarvis': 'A view of Jarvis',
     'Vista de Aquaria': 'A view of Aquaria',
